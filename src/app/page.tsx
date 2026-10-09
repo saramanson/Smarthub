@@ -92,6 +92,7 @@ type Notice = {
 
 type Section = "dashboard" | "rewards" | "calendar" | "notifications" | "settings";
 type CalendarView = "month" | "week" | "day" | "agenda";
+type RewardSheetChild = "jiya" | "lakhan";
 
 const queryClient = new QueryClient();
 
@@ -239,32 +240,21 @@ const seedNotifications: Notice[] = [
   { id: "n3", message: "Reward redeemed", detail: "Extra Screen Time was redeemed this week.", read: true, createdAt: isoDay(-3, 17, 30) }
 ];
 
-const rewardCalculationRows = [
-  {
-    child: "Lakshan",
-    chores: 5,
-    wake: 1,
-    martialArts: 1,
-    puzzles: 1,
-    bags: 1,
-    chess: 1,
-    classes: 1,
-    homeDuty: "Vacuum home",
-    homeDutyPoints: 1
-  },
-  {
-    child: "Jiya",
-    chores: 5,
-    wake: 1,
-    martialArts: 1,
-    puzzles: 1,
-    bags: 1,
-    chess: 1,
-    classes: 1,
-    homeDuty: "Wash dishes",
-    homeDutyPoints: 1
-  }
-];
+const rewardSheetChildren = [
+  { id: "jiya", name: "Jiya", homeTask: "Wash dishes" },
+  { id: "lakhan", name: "Lakshan", homeTask: "Vacuum home" }
+] as const satisfies readonly { id: RewardSheetChild; name: string; homeTask: string }[];
+
+const rewardSheetTasks = [
+  { key: "chores", label: "Every day chores", points: 5 },
+  { key: "wake", label: "Wake up on time", points: 1 },
+  { key: "karate", label: "Kihon/Kumite/Kata", points: 1 },
+  { key: "puzzles", label: "Assigned puzzles", points: 1 },
+  { key: "bags", label: "Pack/Unpack bags", points: 1 },
+  { key: "chess", label: "2 Chess.com games", points: 1 },
+  { key: "classes", label: "Day classes", points: 1 },
+  { key: "homeTask", label: "Home task", points: 1 }
+] as const;
 
 function App() {
   const [activeSection, setActiveSection] = useState<Section>("dashboard");
@@ -279,6 +269,7 @@ function App() {
   const [category, setCategory] = useState("All");
   const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
   const [selectedChild, setSelectedChild] = useState("lakhan");
+  const [rewardSheetChild, setRewardSheetChild] = useState<RewardSheetChild>("jiya");
   const [monthCursor, setMonthCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
 
   const { data } = useQuery({
@@ -421,17 +412,34 @@ function App() {
           </div>
           <nav className="mt-5 space-y-2">
             {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveSection(item.id)}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-500 transition hover:bg-white hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white",
-                  activeSection === item.id && "bg-slate-950 text-white shadow-glow hover:bg-slate-950 hover:text-white dark:bg-white dark:text-slate-950 dark:hover:bg-white"
+              <div key={item.id}>
+                <button
+                  onClick={() => setActiveSection(item.id)}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-500 transition hover:bg-white hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white",
+                    activeSection === item.id && "bg-slate-950 text-white shadow-glow hover:bg-slate-950 hover:text-white dark:bg-white dark:text-slate-950 dark:hover:bg-white"
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.label}
+                </button>
+                {item.id === "rewards" && activeSection === "rewards" && (
+                  <div className="ml-12 mt-2 space-y-1">
+                    {rewardSheetChildren.map((child) => (
+                      <button
+                        key={child.id}
+                        onClick={() => setRewardSheetChild(child.id)}
+                        className={cn(
+                          "block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-500 transition hover:bg-white/80 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white",
+                          rewardSheetChild === child.id && "bg-teal-50 text-teal-800 dark:bg-teal-300/10 dark:text-teal-200"
+                        )}
+                      >
+                        {child.name}
+                      </button>
+                    ))}
+                  </div>
                 )}
-              >
-                <item.icon className="h-5 w-5" />
-                {item.label}
-              </button>
+              </div>
             ))}
           </nav>
           <div className="mt-auto rounded-3xl bg-slate-950 p-5 text-white dark:bg-white dark:text-slate-950">
@@ -517,6 +525,8 @@ function App() {
                   rewards={filteredRewards}
                   transactions={transactions}
                   categories={categories}
+                  activeSheetChild={rewardSheetChild}
+                  setActiveSheetChild={setRewardSheetChild}
                   search={search}
                   category={category}
                   setSearch={setSearch}
@@ -793,6 +803,8 @@ function Rewards({
   rewards,
   transactions,
   categories,
+  activeSheetChild,
+  setActiveSheetChild,
   search,
   category,
   setSearch,
@@ -805,6 +817,8 @@ function Rewards({
   rewards: Reward[];
   transactions: Transaction[];
   categories: string[];
+  activeSheetChild: RewardSheetChild;
+  setActiveSheetChild: (child: RewardSheetChild) => void;
   search: string;
   category: string;
   setSearch: (value: string) => void;
@@ -816,7 +830,7 @@ function Rewards({
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
       <section className="space-y-4">
-        <RewardCalculationTable />
+        <RewardWorksheet activeChild={activeSheetChild} setActiveChild={setActiveSheetChild} />
         <Panel title="Rewards overview">
           <div className="flex flex-col gap-3 sm:flex-row">
             <label className="flex flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-white/5">
@@ -952,77 +966,106 @@ function Rewards({
   );
 }
 
-function RewardCalculationTable() {
-  const columns = [
-    "Child",
-    "Every day chores",
-    "Wake up on time",
-    "Kihon/Kumite/Kata",
-    "Assigned puzzles",
-    "Bags packed/unpacked",
-    "2 Chess.com games",
-    "Day classes",
-    "Home duty",
-    "Daily total"
-  ];
+function RewardWorksheet({
+  activeChild,
+  setActiveChild
+}: {
+  activeChild: RewardSheetChild;
+  setActiveChild: (child: RewardSheetChild) => void;
+}) {
+  const activeChildInfo = rewardSheetChildren.find((child) => child.id === activeChild) ?? rewardSheetChildren[0];
+  const days = useMemo(() => {
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, index) => index + 1);
+  }, []);
+  const monthLabel = new Intl.DateTimeFormat("en-US", { month: "short", year: "2-digit" }).format(today).replace(" ", "'");
+  const [sheetValues, setSheetValues] = useState<Record<string, string>>({});
+
+  const valueKey = (day: number, task: string) => `${activeChild}-${day}-${task}`;
+  const updateCell = (day: number, task: string, value: string) => {
+    const clean = value.replace(/[^\d]/g, "").slice(0, 2);
+    setSheetValues((current) => ({ ...current, [valueKey(day, task)]: clean }));
+  };
+
+  const getRowTotal = (day: number) =>
+    rewardSheetTasks.reduce((sum, task) => sum + Number(sheetValues[valueKey(day, task.key)] || 0), 0);
 
   return (
-    <Panel title="Daily rewards calculation">
+    <Panel title="Daily rewards sheets">
+      <div className="mb-5 grid gap-2 rounded-2xl bg-slate-100 p-1 dark:bg-white/10 sm:grid-cols-2">
+        {rewardSheetChildren.map((child) => (
+          <button
+            key={child.id}
+            onClick={() => setActiveChild(child.id)}
+            className={cn(
+              "rounded-xl px-4 py-3 text-sm font-semibold text-slate-500 transition hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-950 dark:hover:text-white",
+              activeChild === child.id && "bg-white text-slate-950 shadow-sm dark:bg-slate-950 dark:text-white"
+            )}
+          >
+            {child.name}
+          </button>
+        ))}
+      </div>
       <div className="mb-4 flex flex-col justify-between gap-3 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-950 dark:bg-emerald-300/10 dark:text-emerald-100 md:flex-row md:items-center">
         <div>
-          <p className="font-semibold">Excel-style points sheet</p>
-          <p className="mt-1 text-emerald-900/70 dark:text-emerald-100/70">Each task has its own column so parents can track daily earning clearly.</p>
+          <p className="font-semibold">{activeChildInfo.name} points sheet</p>
+          <p className="mt-1 text-emerald-900/70 dark:text-emerald-100/70">
+            Blank daily cells for entry. Type points earned in each task column; the Total column sums the row automatically.
+          </p>
         </div>
         <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-300 dark:text-slate-950">
-          Max 12 pts/day
+          Formula: chores 5 pts, task columns 1 pt
         </span>
       </div>
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
-        <table className="w-full min-w-[1080px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[1180px] border-collapse text-left text-sm">
           <thead>
             <tr className="bg-slate-100 text-xs uppercase tracking-[0.11em] text-slate-500 dark:bg-white/10 dark:text-slate-300">
-              {columns.map((column) => (
-                <th key={column} className="border-b border-r border-slate-200 px-3 py-3 last:border-r-0 dark:border-white/10">
-                  {column}
+              <th className="sticky left-0 z-10 border-b border-r border-slate-200 bg-slate-100 px-3 py-3 dark:border-white/10 dark:bg-slate-900">
+                {monthLabel}
+              </th>
+              {rewardSheetTasks.map((task) => (
+                <th key={task.key} className="border-b border-r border-slate-200 px-3 py-3 dark:border-white/10">
+                  <span>{task.key === "homeTask" ? activeChildInfo.homeTask : task.label}</span>
+                  <span className="mt-1 block text-[11px] font-semibold normal-case tracking-normal text-slate-400">
+                    {task.points} pt{task.points === 1 ? "" : "s"}
+                  </span>
                 </th>
               ))}
+              <th className="border-b border-slate-200 px-3 py-3 dark:border-white/10">Total</th>
             </tr>
           </thead>
           <tbody>
-            {rewardCalculationRows.map((row) => {
-              const total = row.chores + row.wake + row.martialArts + row.puzzles + row.bags + row.chess + row.classes + row.homeDutyPoints;
-              return (
-                <tr key={row.child} className="odd:bg-white even:bg-slate-50 dark:odd:bg-transparent dark:even:bg-white/5">
-                  <td className="border-r border-slate-200 px-3 py-3 font-semibold dark:border-white/10">{row.child}</td>
-                  <PointsCell value={row.chores} detail="Daily chores bucket" />
-                  <PointsCell value={row.wake} />
-                  <PointsCell value={row.martialArts} />
-                  <PointsCell value={row.puzzles} />
-                  <PointsCell value={row.bags} />
-                  <PointsCell value={row.chess} />
-                  <PointsCell value={row.classes} />
-                  <PointsCell value={row.homeDutyPoints} detail={row.homeDuty} />
-                  <td className="px-3 py-3">
-                    <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-bold text-white dark:bg-teal-300 dark:text-slate-950">{total} pts</span>
+            {days.map((day) => (
+              <tr key={`${activeChild}-${day}`} className="odd:bg-white even:bg-slate-50 dark:odd:bg-transparent dark:even:bg-white/5">
+                <td className="sticky left-0 z-10 border-r border-slate-200 bg-inherit px-3 py-2 text-right font-semibold tabular-nums dark:border-white/10">
+                  {day}
+                </td>
+                {rewardSheetTasks.map((task) => (
+                  <td key={task.key} className="border-r border-slate-200 p-0 dark:border-white/10">
+                    <input
+                      aria-label={`${activeChildInfo.name} ${task.label} day ${day}`}
+                      inputMode="numeric"
+                      value={sheetValues[valueKey(day, task.key)] ?? ""}
+                      onChange={(event) => updateCell(day, task.key, event.target.value)}
+                      placeholder=" "
+                      className="h-10 w-full min-w-[118px] border-0 bg-transparent px-3 text-center text-sm font-semibold outline-none transition focus:bg-teal-50 dark:focus:bg-teal-300/10"
+                    />
                   </td>
-                </tr>
-              );
-            })}
+                ))}
+                <td className="px-3 py-2 text-center">
+                  <span className="inline-flex min-w-14 justify-center rounded-full bg-slate-950 px-3 py-1 text-xs font-bold text-white dark:bg-teal-300 dark:text-slate-950">
+                    {getRowTotal(day)}
+                  </span>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
     </Panel>
-  );
-}
-
-function PointsCell({ value, detail }: { value: number; detail?: string }) {
-  return (
-    <td className="border-r border-slate-200 px-3 py-3 dark:border-white/10">
-      <div className="flex flex-col gap-1">
-        <span className="font-semibold">{value} pt{value === 1 ? "" : "s"}</span>
-        {detail && <span className="text-xs text-slate-500 dark:text-slate-400">{detail}</span>}
-      </div>
-    </td>
   );
 }
 
