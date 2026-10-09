@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
@@ -269,6 +270,8 @@ function App() {
   const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
   const [selectedChild, setSelectedChild] = useState("lakhan");
   const [rewardSheetChild, setRewardSheetChild] = useState<RewardSheetChild>("jiya");
+  const [rewardToolsOpen, setRewardToolsOpen] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(288);
   const [monthCursor, setMonthCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
 
   const { data } = useQuery({
@@ -281,6 +284,21 @@ function App() {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
+
+  const startSidebarResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = sidebarWidth;
+    const resize = (moveEvent: PointerEvent) => {
+      setSidebarWidth(Math.min(420, Math.max(236, startWidth + moveEvent.clientX - startX)));
+    };
+    const stopResize = () => {
+      window.removeEventListener("pointermove", resize);
+      window.removeEventListener("pointerup", stopResize);
+    };
+    window.addEventListener("pointermove", resize);
+    window.addEventListener("pointerup", stopResize);
+  };
 
   const totalPoints = children.reduce((sum, child) => sum + child.points, 0);
   const pendingRewards = rewards.filter((reward) => reward.quantity > 0 && reward.status !== "archived").length;
@@ -399,7 +417,10 @@ function App() {
   return (
     <main className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_12%_8%,rgba(20,184,166,0.24),transparent_28%),radial-gradient(circle_at_84%_0%,rgba(244,114,182,0.18),transparent_24%),linear-gradient(135deg,#f8fafc,#edf7f5_42%,#f5f3ff)] text-slate-950 transition-colors dark:bg-[radial-gradient(circle_at_12%_8%,rgba(45,212,191,0.16),transparent_28%),radial-gradient(circle_at_84%_0%,rgba(244,114,182,0.12),transparent_24%),linear-gradient(135deg,#020617,#0f172a_46%,#13251f)] dark:text-white">
       <div className="mx-auto flex w-full max-w-[1520px] gap-4 px-3 py-3 sm:px-5 lg:px-6">
-        <aside className="sticky top-3 hidden h-[calc(100vh-1.5rem)] w-72 flex-col rounded-[1.75rem] border border-white/80 bg-white/70 p-4 shadow-panel backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/60 lg:flex">
+        <aside
+          className="sticky top-3 hidden h-[calc(100vh-1.5rem)] shrink-0 flex-col rounded-[1.75rem] border border-white/80 bg-white/70 p-4 shadow-panel backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/60 lg:flex"
+          style={{ width: sidebarWidth }}
+        >
           <div className="flex items-center gap-3 px-2 py-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white dark:bg-teal-300 dark:text-slate-950">
               <Home className="h-6 w-6" />
@@ -422,6 +443,15 @@ function App() {
                   <item.icon className="h-5 w-5" />
                   {item.label}
                 </button>
+                {item.id === "rewards" && activeSection === "rewards" && (
+                  <button
+                    onClick={() => setRewardToolsOpen(true)}
+                    className="ml-10 mt-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create rewards
+                  </button>
+                )}
               </div>
             ))}
           </nav>
@@ -436,6 +466,13 @@ function App() {
               ))}
             </div>
           </div>
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize sidebar"
+            onPointerDown={startSidebarResize}
+            className="absolute -right-2 top-8 h-[calc(100%-4rem)] w-4 cursor-col-resize rounded-full transition hover:bg-teal-300/30"
+          />
         </aside>
 
         <section className="min-w-0 flex-1">
@@ -514,8 +551,7 @@ function App() {
                   category={category}
                   setSearch={setSearch}
                   setCategory={setCategory}
-                  createReward={createReward}
-                  addPoints={addPoints}
+                  openRewardTools={() => setRewardToolsOpen(true)}
                   setSelectedReward={setSelectedReward}
                 />
               )}
@@ -542,6 +578,20 @@ function App() {
       </div>
 
       <AnimatePresence>
+        {rewardToolsOpen && (
+          <RewardToolsModal
+            familyChildren={children}
+            createReward={(formData) => {
+              createReward(formData);
+              setRewardToolsOpen(false);
+            }}
+            addPoints={(formData) => {
+              addPoints(formData);
+              setRewardToolsOpen(false);
+            }}
+            onClose={() => setRewardToolsOpen(false)}
+          />
+        )}
         {selectedReward && (
           <motion.div
             className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm"
@@ -792,8 +842,7 @@ function Rewards({
   category,
   setSearch,
   setCategory,
-  createReward,
-  addPoints,
+  openRewardTools,
   setSelectedReward
 }: {
   children: Child[];
@@ -806,13 +855,21 @@ function Rewards({
   category: string;
   setSearch: (value: string) => void;
   setCategory: (value: string) => void;
-  createReward: (formData: FormData) => void;
-  addPoints: (formData: FormData) => void;
+  openRewardTools: () => void;
   setSelectedReward: (reward: Reward) => void;
 }) {
   return (
-    <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
+    <div className="space-y-4">
       <section className="space-y-4">
+        <div className="flex justify-end">
+          <button
+            onClick={openRewardTools}
+            className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white shadow-glow transition hover:-translate-y-0.5 dark:bg-teal-300 dark:text-slate-950"
+          >
+            <Plus className="h-4 w-4" />
+            Create rewards
+          </button>
+        </div>
         <RewardWorksheet activeChild={activeSheetChild} setActiveChild={setActiveSheetChild} />
         <Panel title="Rewards overview">
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -889,63 +946,122 @@ function Rewards({
             </table>
           </div>
         </Panel>
-      </section>
-
-      <aside className="space-y-4">
-        <Panel title="Create reward">
-          <form action={createReward} className="space-y-3">
-            <Input name="reward-name" label="Name" placeholder="Ice cream trip" />
-            <Input name="reward-description" label="Description" placeholder="Choose a weekend dessert stop" />
-            <div className="grid grid-cols-2 gap-3">
-              <Input name="reward-cost" label="Point cost" type="number" placeholder="220" />
-              <Input name="reward-quantity" label="Quantity" type="number" placeholder="3" />
-            </div>
-            <Input name="reward-category" label="Category" placeholder="Treats" />
-            <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white dark:bg-teal-300 dark:text-slate-950">
-              <Plus className="h-4 w-4" />
-              Add reward
-            </button>
-          </form>
-        </Panel>
-        <Panel title="Add points">
-          <form action={addPoints} className="space-y-3">
-            <label className="block text-sm font-medium">
-              Child
-              <select name="child" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-white/10 dark:bg-slate-900">
-                {children.map((child) => (
-                  <option value={child.id} key={child.id}>
-                    {child.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Input name="activity" label="Activity" placeholder="Chores" />
-            <Input name="points" label="Points earned" type="number" placeholder="50" />
-            <Input name="notes" label="Notes" placeholder="Cleaned room and folded laundry" />
-            <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white dark:bg-teal-300 dark:text-slate-950">
-              <Award className="h-4 w-4" />
-              Award points
-            </button>
-          </form>
-        </Panel>
         <Panel title="Leaderboard">
           <div className="space-y-3">
-            {[...children].sort((a, b) => b.points - a.points).map((child, index) => (
-              <div key={child.id} className="flex items-center justify-between rounded-2xl bg-slate-100 p-3 dark:bg-white/10">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-950 text-sm font-bold text-white dark:bg-white dark:text-slate-950">{index + 1}</div>
-                  <div>
-                    <p className="text-sm font-semibold">{child.name}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{child.badges[0]}</p>
+            {[...children]
+              .sort((left, right) => right.points - left.points)
+              .map((child, index) => (
+                <div key={child.id} className="flex items-center justify-between rounded-2xl bg-slate-100 p-3 dark:bg-white/10">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-950 text-sm font-bold text-white dark:bg-white dark:text-slate-950">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">{child.name}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{child.badges[0]}</p>
+                    </div>
                   </div>
+                  <strong>{child.points}</strong>
                 </div>
-                <strong>{child.points}</strong>
-              </div>
-            ))}
+              ))}
           </div>
         </Panel>
-      </aside>
+      </section>
     </div>
+  );
+}
+
+function RewardToolsModal({
+  familyChildren,
+  createReward,
+  addPoints,
+  onClose
+}: {
+  familyChildren: Child[];
+  createReward: (formData: FormData) => void;
+  addPoints: (formData: FormData) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 cursor-default" onClick={onClose} />
+      <motion.section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reward-tools-title"
+        initial={{ scale: 0.96, y: 12 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.96, y: 12 }}
+        className="relative max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[1.5rem] bg-white p-5 shadow-panel dark:bg-slate-950 sm:p-6"
+      >
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">Rewards</p>
+            <h2 id="reward-tools-title" className="mt-1 text-2xl font-semibold">
+              Create rewards & add points
+            </h2>
+          </div>
+          <button className="rounded-full p-2 hover:bg-slate-100 dark:hover:bg-white/10" onClick={onClose} aria-label="Close rewards tools">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+            <h3 className="text-lg font-semibold">Create reward</h3>
+            <form action={createReward} className="mt-4 space-y-3">
+              <Input name="reward-name" label="Name" placeholder="Ice cream trip" />
+              <Input name="reward-description" label="Description" placeholder="Choose a weekend dessert stop" />
+              <div className="grid grid-cols-2 gap-3">
+                <Input name="reward-cost" label="Point cost" type="number" placeholder="220" />
+                <Input name="reward-quantity" label="Quantity" type="number" placeholder="3" />
+              </div>
+              <Input name="reward-category" label="Category" placeholder="Treats" />
+              <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white dark:bg-teal-300 dark:text-slate-950">
+                <Plus className="h-4 w-4" />
+                Add reward
+              </button>
+            </form>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+            <h3 className="text-lg font-semibold">Add points</h3>
+            <form action={addPoints} className="mt-4 space-y-3">
+              <label className="block text-sm font-medium">
+                Child
+                <select name="child" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-white/10 dark:bg-slate-900">
+                  {familyChildren.map((child) => (
+                    <option value={child.id} key={child.id}>
+                      {child.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Input name="activity" label="Activity" placeholder="Chores" />
+              <Input name="points" label="Points earned" type="number" placeholder="50" />
+              <Input name="notes" label="Notes" placeholder="Cleaned room and folded laundry" />
+              <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white dark:bg-teal-300 dark:text-slate-950">
+                <Award className="h-4 w-4" />
+                Award points
+              </button>
+            </form>
+          </section>
+        </div>
+      </motion.section>
+    </motion.div>
   );
 }
 
@@ -997,7 +1113,7 @@ function RewardWorksheet({
           </button>
         ))}
       </div>
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
+      <div className="min-h-[420px] max-h-[calc(100vh-310px)] resize-y overflow-auto rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
         <table className="w-full min-w-[1180px] border-collapse text-left text-sm">
           <thead>
             <tr className="bg-slate-100 text-xs uppercase tracking-[0.11em] text-slate-500 dark:bg-white/10 dark:text-slate-300">
