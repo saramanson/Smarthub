@@ -423,22 +423,6 @@ function App() {
                   <item.icon className="h-5 w-5" />
                   {item.label}
                 </button>
-                {item.id === "rewards" && activeSection === "rewards" && (
-                  <div className="ml-12 mt-2 space-y-1">
-                    {rewardSheetChildren.map((child) => (
-                      <button
-                        key={child.id}
-                        onClick={() => setRewardSheetChild(child.id)}
-                        className={cn(
-                          "block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-500 transition hover:bg-white/80 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white",
-                          rewardSheetChild === child.id && "bg-teal-50 text-teal-800 dark:bg-teal-300/10 dark:text-teal-200"
-                        )}
-                      >
-                        {child.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             ))}
           </nav>
@@ -1008,17 +992,6 @@ function RewardWorksheet({
           </button>
         ))}
       </div>
-      <div className="mb-4 flex flex-col justify-between gap-3 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-950 dark:bg-emerald-300/10 dark:text-emerald-100 md:flex-row md:items-center">
-        <div>
-          <p className="font-semibold">{activeChildInfo.name} points sheet</p>
-          <p className="mt-1 text-emerald-900/70 dark:text-emerald-100/70">
-            Blank daily cells for entry. Type points earned in each task column; the Total column sums the row automatically.
-          </p>
-        </div>
-        <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-300 dark:text-slate-950">
-          Formula: chores 5 pts, task columns 1 pt
-        </span>
-      </div>
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
         <table className="w-full min-w-[1180px] border-collapse text-left text-sm">
           <thead>
@@ -1029,9 +1002,6 @@ function RewardWorksheet({
               {rewardSheetTasks.map((task) => (
                 <th key={task.key} className="border-b border-r border-slate-200 px-3 py-3 dark:border-white/10">
                   <span>{task.key === "homeTask" ? activeChildInfo.homeTask : task.label}</span>
-                  <span className="mt-1 block text-[11px] font-semibold normal-case tracking-normal text-slate-400">
-                    {task.points} pt{task.points === 1 ? "" : "s"}
-                  </span>
                 </th>
               ))}
               <th className="border-b border-slate-200 px-3 py-3 dark:border-white/10">Total</th>
