@@ -246,7 +246,6 @@ const rewardSheetChildren = [
 ] as const satisfies readonly { id: RewardSheetChild; name: string; homeTask: string }[];
 
 const rewardSheetTasks = [
-  { key: "chores", label: "Every day chores", points: 5 },
   { key: "wake", label: "Wake up on time", points: 1 },
   { key: "karate", label: "Kihon/Kumite/Kata", points: 1 },
   { key: "puzzles", label: "Assigned puzzles", points: 1 },
@@ -973,8 +972,14 @@ function RewardWorksheet({
     setSheetValues((current) => ({ ...current, [valueKey(day, task)]: clean }));
   };
 
+  const countsTowardTotal = (task: (typeof rewardSheetTasks)[number]) => {
+    if (task.key === "wake") return false;
+    if (task.key === "homeTask" && activeChildInfo.homeTask === "Wash dishes") return false;
+    return true;
+  };
+
   const getRowTotal = (day: number) =>
-    rewardSheetTasks.reduce((sum, task) => sum + Number(sheetValues[valueKey(day, task.key)] || 0), 0);
+    rewardSheetTasks.reduce((sum, task) => sum + (countsTowardTotal(task) ? Number(sheetValues[valueKey(day, task.key)] || 0) : 0), 0);
 
   return (
     <Panel title="Daily rewards sheets">
@@ -1016,7 +1021,7 @@ function RewardWorksheet({
                 {rewardSheetTasks.map((task) => (
                   <td key={task.key} className="border-r border-slate-200 p-0 dark:border-white/10">
                     <input
-                      aria-label={`${activeChildInfo.name} ${task.label} day ${day}`}
+                      aria-label={`${activeChildInfo.name} ${task.key === "homeTask" ? activeChildInfo.homeTask : task.label} day ${day}`}
                       inputMode="numeric"
                       value={sheetValues[valueKey(day, task.key)] ?? ""}
                       onChange={(event) => updateCell(day, task.key, event.target.value)}
