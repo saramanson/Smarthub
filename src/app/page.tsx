@@ -98,7 +98,7 @@ const queryClient = new QueryClient();
 const seedChildren: Child[] = [
   {
     id: "lakhan",
-    name: "Lakhan",
+    name: "Lakshan",
     role: "Child",
     points: 730,
     weekly: 165,
@@ -181,7 +181,7 @@ const seedEvents: FamilyEvent[] = [
     end: "4:45 PM",
     location: "Lincoln Elementary",
     category: "School",
-    assigned: ["Lakhan", "Parent"],
+    assigned: ["Lakshan", "Parent"],
     color: "bg-sky-500",
     reminder: "1 hour"
   },
@@ -207,36 +207,63 @@ const seedEvents: FamilyEvent[] = [
     end: "11:15 AM",
     location: "Smile Studio",
     category: "Appointments",
-    assigned: ["Lakhan", "Jiya"],
+    assigned: ["Lakshan", "Jiya"],
     color: "bg-violet-500",
     reminder: "1 day"
   },
   {
     id: "game-night",
     title: "Board Game Night",
-    description: "Lakhan chooses the first game, Jiya chooses dessert.",
+    description: "Lakshan chooses the first game, Jiya chooses dessert.",
     date: isoDay(6, 19, 0),
     start: "7:00 PM",
     end: "8:30 PM",
     location: "Home",
     category: "Family",
-    assigned: ["Lakhan", "Jiya", "Parent"],
+    assigned: ["Lakshan", "Jiya", "Parent"],
     color: "bg-amber-500",
     reminder: "1 hour"
   }
 ];
 
 const seedTransactions: Transaction[] = [
-  { id: "t1", date: isoDay(-1), child: "Lakhan", activity: "Reading", earned: 40, redeemed: 0, balance: 730, notes: "Finished two chapters" },
+  { id: "t1", date: isoDay(-1), child: "Lakshan", activity: "Reading", earned: 40, redeemed: 0, balance: 730, notes: "Finished two chapters" },
   { id: "t2", date: isoDay(-1), child: "Jiya", activity: "Good Behavior", earned: 35, redeemed: 0, balance: 420, notes: "Helped with dinner" },
-  { id: "t3", date: isoDay(-3), child: "Lakhan", activity: "Reward Redemption", earned: 0, redeemed: 120, balance: 690, notes: "Extra Screen Time" },
+  { id: "t3", date: isoDay(-3), child: "Lakshan", activity: "Reward Redemption", earned: 0, redeemed: 120, balance: 690, notes: "Extra Screen Time" },
   { id: "t4", date: isoDay(-4), child: "Jiya", activity: "Homework", earned: 55, redeemed: 0, balance: 385, notes: "Math packet complete" }
 ];
 
 const seedNotifications: Notice[] = [
-  { id: "n1", message: "Points added", detail: "Lakhan earned 40 points for reading.", read: false, createdAt: isoDay(-1, 18, 20) },
+  { id: "n1", message: "Points added", detail: "Lakshan earned 40 points for reading.", read: false, createdAt: isoDay(-1, 18, 20) },
   { id: "n2", message: "Event reminder", detail: "Parent Teacher Conference is tomorrow.", read: false, createdAt: isoDay(0, 8, 0) },
   { id: "n3", message: "Reward redeemed", detail: "Extra Screen Time was redeemed this week.", read: true, createdAt: isoDay(-3, 17, 30) }
+];
+
+const rewardCalculationRows = [
+  {
+    child: "Lakshan",
+    chores: 5,
+    wake: 1,
+    martialArts: 1,
+    puzzles: 1,
+    bags: 1,
+    chess: 1,
+    classes: 1,
+    homeDuty: "Vacuum home",
+    homeDutyPoints: 1
+  },
+  {
+    child: "Jiya",
+    chores: 5,
+    wake: 1,
+    martialArts: 1,
+    puzzles: 1,
+    bags: 1,
+    chess: 1,
+    classes: 1,
+    homeDuty: "Wash dishes",
+    homeDutyPoints: 1
+  }
 ];
 
 function App() {
@@ -359,7 +386,7 @@ function App() {
       end: timeToLabel(String(formData.get("event-end") || "10:00")),
       location: String(formData.get("event-location") || "Home"),
       category: String(formData.get("event-category") || "Family"),
-      assigned: String(formData.get("event-assigned") || "Lakhan,Jiya").split(",").map((item) => item.trim()).filter(Boolean),
+      assigned: String(formData.get("event-assigned") || "Lakshan,Jiya").split(",").map((item) => item.trim()).filter(Boolean),
       color: String(formData.get("event-color") || "bg-teal-500"),
       reminder: String(formData.get("event-reminder") || "1 hour")
     };
@@ -424,7 +451,7 @@ function App() {
           <header className="sticky top-3 z-30 mb-4 flex items-center justify-between rounded-[1.5rem] border border-white/80 bg-white/75 px-4 py-3 shadow-panel backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/60">
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">Today</p>
-              <h1 className="truncate text-lg font-semibold sm:text-2xl">Welcome back, Patel family</h1>
+              <h1 className="truncate text-lg font-semibold sm:text-2xl">Welcome back, Ganesh Family</h1>
             </div>
             <div className="flex items-center gap-2">
               <Link href="/sign-in" className="hidden rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white sm:inline-flex">
@@ -789,6 +816,7 @@ function Rewards({
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
       <section className="space-y-4">
+        <RewardCalculationTable />
         <Panel title="Rewards overview">
           <div className="flex flex-col gap-3 sm:flex-row">
             <label className="flex flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-white/5">
@@ -924,6 +952,80 @@ function Rewards({
   );
 }
 
+function RewardCalculationTable() {
+  const columns = [
+    "Child",
+    "Every day chores",
+    "Wake up on time",
+    "Kihon/Kumite/Kata",
+    "Assigned puzzles",
+    "Bags packed/unpacked",
+    "2 Chess.com games",
+    "Day classes",
+    "Home duty",
+    "Daily total"
+  ];
+
+  return (
+    <Panel title="Daily rewards calculation">
+      <div className="mb-4 flex flex-col justify-between gap-3 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-950 dark:bg-emerald-300/10 dark:text-emerald-100 md:flex-row md:items-center">
+        <div>
+          <p className="font-semibold">Excel-style points sheet</p>
+          <p className="mt-1 text-emerald-900/70 dark:text-emerald-100/70">Each task has its own column so parents can track daily earning clearly.</p>
+        </div>
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-300 dark:text-slate-950">
+          Max 12 pts/day
+        </span>
+      </div>
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
+        <table className="w-full min-w-[1080px] border-collapse text-left text-sm">
+          <thead>
+            <tr className="bg-slate-100 text-xs uppercase tracking-[0.11em] text-slate-500 dark:bg-white/10 dark:text-slate-300">
+              {columns.map((column) => (
+                <th key={column} className="border-b border-r border-slate-200 px-3 py-3 last:border-r-0 dark:border-white/10">
+                  {column}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rewardCalculationRows.map((row) => {
+              const total = row.chores + row.wake + row.martialArts + row.puzzles + row.bags + row.chess + row.classes + row.homeDutyPoints;
+              return (
+                <tr key={row.child} className="odd:bg-white even:bg-slate-50 dark:odd:bg-transparent dark:even:bg-white/5">
+                  <td className="border-r border-slate-200 px-3 py-3 font-semibold dark:border-white/10">{row.child}</td>
+                  <PointsCell value={row.chores} detail="Daily chores bucket" />
+                  <PointsCell value={row.wake} />
+                  <PointsCell value={row.martialArts} />
+                  <PointsCell value={row.puzzles} />
+                  <PointsCell value={row.bags} />
+                  <PointsCell value={row.chess} />
+                  <PointsCell value={row.classes} />
+                  <PointsCell value={row.homeDutyPoints} detail={row.homeDuty} />
+                  <td className="px-3 py-3">
+                    <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-bold text-white dark:bg-teal-300 dark:text-slate-950">{total} pts</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  );
+}
+
+function PointsCell({ value, detail }: { value: number; detail?: string }) {
+  return (
+    <td className="border-r border-slate-200 px-3 py-3 dark:border-white/10">
+      <div className="flex flex-col gap-1">
+        <span className="font-semibold">{value} pt{value === 1 ? "" : "s"}</span>
+        {detail && <span className="text-xs text-slate-500 dark:text-slate-400">{detail}</span>}
+      </div>
+    </td>
+  );
+}
+
 function Calendar({
   events,
   view,
@@ -1025,7 +1127,7 @@ function Calendar({
               <Input name="event-end" label="End" type="time" />
             </div>
             <Input name="event-location" label="Location" placeholder="Community center" />
-            <Input name="event-assigned" label="Assigned members" placeholder="Lakhan, Jiya" />
+            <Input name="event-assigned" label="Assigned members" placeholder="Lakshan, Jiya" />
             <div className="grid grid-cols-2 gap-3">
               <Input name="event-category" label="Category" placeholder="School" />
               <label className="block text-sm font-medium">
@@ -1101,7 +1203,7 @@ function SettingsPanel({ theme, setTheme }: { theme: "light" | "dark"; setTheme:
     <div className="grid gap-4 xl:grid-cols-2">
       <Panel title="Family settings">
         <div className="space-y-4">
-          <Input label="Family name" name="family-name" placeholder="Patel Family" />
+          <Input label="Family name" name="family-name" placeholder="Ganesh Family" />
           <Input label="Invite member email" name="invite" placeholder="guardian@example.com" />
           <button className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white dark:bg-teal-300 dark:text-slate-950">
             <Mail className="h-4 w-4" />

@@ -102,7 +102,7 @@ export function AuthCard({ mode }: { mode: AuthMode }) {
                     <span className="text-sm font-medium">Family name</span>
                     <div className="mt-2 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-white/5">
                       <UserPlus className="h-5 w-5 text-slate-400" />
-                      <input className="w-full bg-transparent text-sm outline-none" placeholder="The Patel Family" />
+                      <input className="w-full bg-transparent text-sm outline-none" placeholder="The Ganesh Family" />
                     </div>
                   </label>
                 )}
