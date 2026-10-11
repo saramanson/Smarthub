@@ -273,6 +273,7 @@ function App() {
   const [selectedChild, setSelectedChild] = useState("lakhan");
   const [rewardSheetChild, setRewardSheetChild] = useState<RewardSheetChild>("jiya");
   const [rewardToolsOpen, setRewardToolsOpen] = useState(false);
+  const [openWebGroups, setOpenWebGroups] = useState<Record<string, boolean>>({});
   const [sidebarWidth, setSidebarWidth] = useState(288);
   const [monthCursor, setMonthCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
 
@@ -458,24 +459,32 @@ function App() {
                   <div className="mt-2 space-y-2">
                     {sidebarWebGroups.map((group) => (
                       <div key={group.label}>
-                        <div className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-500 transition hover:bg-white hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white">
+                        <button
+                          type="button"
+                          onClick={() => setOpenWebGroups((current) => ({ ...current, [group.label]: !current[group.label] }))}
+                          aria-expanded={Boolean(openWebGroups[group.label])}
+                          className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-500 transition hover:bg-white hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+                        >
                           <Globe2 className="h-5 w-5" />
-                          {group.label}
-                        </div>
-                        <div className="ml-10 mt-1 space-y-1">
-                          {group.links.map((link) => (
-                            <a
-                              key={link.href}
-                              href={link.href}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
-                            >
-                              {link.label}
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </a>
-                          ))}
-                        </div>
+                          <span className="flex-1">{group.label}</span>
+                          <ChevronRight className={cn("h-4 w-4 transition-transform", openWebGroups[group.label] && "rotate-90")} />
+                        </button>
+                        {openWebGroups[group.label] && (
+                          <div className="ml-10 mt-1 space-y-1">
+                            {group.links.map((link) => (
+                              <a
+                                key={link.href}
+                                href={link.href}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+                              >
+                                {link.label}
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
