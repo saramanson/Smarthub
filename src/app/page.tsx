@@ -429,7 +429,7 @@ function App() {
               <Home className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-sm font-semibold">Family Rewards</p>
+              <p className="text-sm font-semibold">SMART - HOME</p>
               <p className="text-xs text-slate-500 dark:text-slate-400">Calendar HQ</p>
             </div>
           </div>
