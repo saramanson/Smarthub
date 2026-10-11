@@ -14,7 +14,9 @@ import {
   ChevronRight,
   Clock,
   Copy,
+  ExternalLink,
   Gift,
+  Globe2,
   Home,
   LayoutDashboard,
   ListChecks,
@@ -452,6 +454,32 @@ function App() {
                     Create rewards
                   </button>
                 )}
+                {item.id === "calendar" && (
+                  <div className="mt-2 space-y-2">
+                    {sidebarWebGroups.map((group) => (
+                      <div key={group.label}>
+                        <div className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-500 transition hover:bg-white hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white">
+                          <Globe2 className="h-5 w-5" />
+                          {group.label}
+                        </div>
+                        <div className="ml-10 mt-1 space-y-1">
+                          {group.links.map((link) => (
+                            <a
+                              key={link.href}
+                              href={link.href}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+                            >
+                              {link.label}
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </nav>
@@ -661,6 +689,24 @@ const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] =
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "settings", label: "Settings", icon: Settings }
 ];
+
+const sidebarWebGroups = [
+  {
+    label: "FAMILY WEB",
+    links: [
+      { label: "Ganesh", href: "https://ganesh-sap-spark.lovable.app/" },
+      { label: "Jiya", href: "https://art-empress-engine.lovable.app/" },
+      { label: "Lakshan", href: "https://happy-url-craft.lovable.app/" }
+    ]
+  },
+  {
+    label: "OTHER WEB",
+    links: [
+      { label: "Chess lab", href: "https://chess-platform-chi.vercel.app/" },
+      { label: "Expense tracker", href: "https://expense-tracker-frontend-hys6.onrender.com/" }
+    ]
+  }
+] as const;
 
 function Dashboard({
   loaded,
