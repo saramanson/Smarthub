@@ -430,7 +430,6 @@ function App() {
             </div>
             <div>
               <p className="text-sm font-semibold">SMART - HOME</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Calendar HQ</p>
             </div>
           </div>
           <nav className="mt-5 space-y-2">
