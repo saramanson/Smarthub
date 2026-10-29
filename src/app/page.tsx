@@ -26,6 +26,7 @@ import {
   Mail,
   Moon,
   MoreHorizontal,
+  Pencil,
   Plus,
   Search,
   Settings,
@@ -307,7 +308,17 @@ const seedPantryItems: PantryItem[] = [
   { id: "pantry-47", purchased: false, category: "Fruits", name: "Mangoes (Mambazham / மாம்பழம்)", quantity: 1, unit: "box", unitPrice: 8.99 },
   { id: "pantry-48", purchased: false, category: "Fruits", name: "Pomegranate (Mathulai / மாதுளை)", quantity: 2, unit: "pack", unitPrice: 4.49 },
   { id: "pantry-49", purchased: false, category: "Fruits", name: "Sweet Lime (Sathukudi / சாத்துக்குடி)", quantity: 1, unit: "kg", unitPrice: 3.99 },
-  { id: "pantry-50", purchased: false, category: "Fruits", name: "Grapes (Thiratchai / திராட்சை)", quantity: 1, unit: "pack", unitPrice: 3.49 }
+  { id: "pantry-50", purchased: false, category: "Fruits", name: "Grapes (Thiratchai / திராட்சை)", quantity: 1, unit: "pack", unitPrice: 3.49 },
+  { id: "pantry-51", purchased: false, category: "Snacks", name: "Murukku (Murukku / முறுக்கு)", quantity: 2, unit: "pack", unitPrice: 3.49 },
+  { id: "pantry-52", purchased: false, category: "Snacks", name: "Madras Mixture (Mixture / மிக்சர்)", quantity: 1, unit: "pack", unitPrice: 3.99 },
+  { id: "pantry-53", purchased: false, category: "Snacks", name: "Banana Chips (Nenthiran Chips / நேந்திரம் சிப்ஸ்)", quantity: 2, unit: "pack", unitPrice: 3.29 },
+  { id: "pantry-54", purchased: false, category: "Snacks", name: "Thattai (Thattai / தட்டை)", quantity: 1, unit: "pack", unitPrice: 3.49 },
+  { id: "pantry-55", purchased: false, category: "Snacks", name: "Ribbon Pakoda (Ribbon Pakoda / ரிப்பன் பக்கோடா)", quantity: 1, unit: "pack", unitPrice: 3.49 },
+  { id: "pantry-56", purchased: false, category: "Snacks", name: "Peanut Chikki (Kadalai Mittai / கடலை மிட்டாய்)", quantity: 2, unit: "pack", unitPrice: 2.99 },
+  { id: "pantry-57", purchased: false, category: "Snacks", name: "Chocolates (Chocolate / சாக்லேட்)", quantity: 2, unit: "pack", unitPrice: 3.99 },
+  { id: "pantry-58", purchased: false, category: "Snacks", name: "Biscuits (Biscuits / பிஸ்கட்)", quantity: 2, unit: "pack", unitPrice: 2.99 },
+  { id: "pantry-59", purchased: false, category: "Snacks", name: "Biscotti (Biscotti / பிஸ்கோட்டி)", quantity: 1, unit: "pack", unitPrice: 4.49 },
+  { id: "pantry-60", purchased: false, category: "Snacks", name: "Pretzels (Pretzels / பிரெட்ஸெல்ஸ்)", quantity: 1, unit: "pack", unitPrice: 3.49 }
 ];
 
 const rewardSheetChildren = [
@@ -1106,6 +1117,7 @@ function Pantry({
   const [category, setCategory] = useState("All");
   const [pendingOnly, setPendingOnly] = useState(false);
   const [addItemOpen, setAddItemOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
   const currency = useMemo(() => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }), []);
   const categories = useMemo(() => Array.from(new Set(items.map((item) => item.category))), [items]);
   const visibleItems = useMemo(() => {
@@ -1149,6 +1161,15 @@ function Pantry({
     const numericValue = Number(value);
     if (!Number.isFinite(numericValue) || numericValue < 0) return;
     setItems((current) => current.map((item) => (item.id === id ? { ...item, [field]: numericValue } : item)));
+  };
+
+  const manageItem = (id: string, formData: FormData) => {
+    const quantity = Number(formData.get("manage-quantity") || 0);
+    const unitPrice = Number(formData.get("manage-unit-price") || 0);
+    const unit = String(formData.get("manage-unit") || "item").trim() || "item";
+    if (!Number.isFinite(quantity) || quantity < 0 || !Number.isFinite(unitPrice) || unitPrice < 0) return;
+    setItems((current) => current.map((item) => (item.id === id ? { ...item, quantity, unit, unitPrice } : item)));
+    setEditingItem(null);
   };
 
   const createItem = (formData: FormData) => {
@@ -1275,7 +1296,7 @@ function Pantry({
         </div>
 
         <div className="max-h-[560px] overflow-auto rounded-xl border border-slate-200 dark:border-white/10">
-          <table className="w-full min-w-[960px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[1060px] border-collapse text-left text-sm">
             <thead className="sticky top-0 z-10 bg-amber-800 text-xs uppercase tracking-[0.08em] text-white">
               <tr>
                 <th className="w-20 px-3 py-3 text-center">Status</th>
@@ -1285,6 +1306,7 @@ function Pantry({
                 <th className="w-24 px-3 py-3">Unit</th>
                 <th className="w-28 px-3 py-3 text-right">Unit price</th>
                 <th className="w-28 px-3 py-3 text-right">Subtotal</th>
+                <th className="w-24 px-3 py-3 text-center">Manage</th>
                 <th className="w-20 px-3 py-3 text-center">Delete</th>
               </tr>
             </thead>
@@ -1310,6 +1332,12 @@ function Pantry({
                     </td>
                     <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{currency.format(subtotal)}</td>
                     <td className="px-3 py-2.5 text-center">
+                      <button onClick={() => setEditingItem(item)} className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-400 dark:text-teal-200 dark:hover:bg-teal-300/10" aria-label={`Manage price and quantity for ${item.name}`} title="Manage price and quantity">
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit
+                      </button>
+                    </td>
+                    <td className="px-3 py-2.5 text-center">
                       <button onClick={() => deleteItem(item.id, item.name)} className="rounded-lg p-2 text-rose-600 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-400 dark:text-rose-300 dark:hover:bg-rose-300/10" aria-label={`Delete ${item.name}`} title="Delete item">
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -1325,6 +1353,7 @@ function Pantry({
 
       <AnimatePresence>
         {addItemOpen && <PantryItemModal categories={categories} onClose={() => setAddItemOpen(false)} onCreate={createItem} />}
+        {editingItem && <PantryManageItemModal item={editingItem} onClose={() => setEditingItem(null)} onSave={manageItem} />}
       </AnimatePresence>
     </div>
   );
@@ -1403,6 +1432,69 @@ function PantryItemModal({
           <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white dark:bg-teal-300 dark:text-slate-950">
             <Plus className="h-4 w-4" />
             Add item
+          </button>
+        </form>
+      </motion.section>
+    </motion.div>
+  );
+}
+
+function PantryManageItemModal({
+  item,
+  onClose,
+  onSave
+}: {
+  item: PantryItem;
+  onClose: () => void;
+  onSave: (id: string, formData: FormData) => void;
+}) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <div className="absolute inset-0 cursor-default" onClick={onClose} />
+      <motion.section role="dialog" aria-modal="true" aria-labelledby="manage-pantry-item-title" initial={{ scale: 0.96, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 12 }} className="relative w-full max-w-lg rounded-[1.5rem] bg-white p-5 shadow-panel dark:bg-slate-950 sm:p-6">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">Manage item</p>
+            <h2 id="manage-pantry-item-title" className="mt-1 text-2xl font-semibold">Price & quantity</h2>
+          </div>
+          <button className="rounded-full p-2 hover:bg-slate-100 dark:hover:bg-white/10" onClick={onClose} aria-label="Close pantry item manager">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="mb-5 rounded-2xl bg-teal-50 p-4 dark:bg-teal-300/10">
+          <p className="font-semibold text-slate-950 dark:text-white">{item.name}</p>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{item.category}</p>
+        </div>
+        <form action={(formData) => onSave(item.id, formData)} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block text-sm font-medium">
+              Quantity
+              <input name="manage-quantity" type="number" min="0" step="0.5" defaultValue={item.quantity} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" />
+            </label>
+            <label className="block text-sm font-medium">
+              Unit
+              <input name="manage-unit" defaultValue={item.unit} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" />
+            </label>
+          </div>
+          <label className="block text-sm font-medium">
+            Unit price
+            <div className="relative mt-2">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+              <input name="manage-unit-price" type="number" min="0" step="0.01" defaultValue={item.unitPrice} className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-8 pr-4 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" />
+            </div>
+          </label>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Saving recalculates this item’s subtotal and every Pantry total automatically.</p>
+          <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white dark:bg-teal-300 dark:text-slate-950">
+            <Check className="h-4 w-4" />
+            Save changes
           </button>
         </form>
       </motion.section>
