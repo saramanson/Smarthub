@@ -452,7 +452,37 @@ const seedMenuSides: MenuSide[] = [
   { id: "side-02", day: 0, label: "Varuval", name: "Potato", note: "Pan roast with minimal oil" },
   { id: "side-03", day: 0, label: "Thuvaiyal", name: "Cilantro", note: "Pair with lunch or dinner" },
   { id: "side-04", day: 0, label: "Chutney", name: "Coconut", note: "Pair with breakfast" },
-  { id: "side-05", day: 0, label: "Kootu", name: "Cabbage", note: "Pair with lunch or dinner" }
+  { id: "side-05", day: 0, label: "Kootu", name: "Cabbage", note: "Pair with lunch or dinner" },
+  { id: "side-06", day: 1, label: "Poriyal", name: "Beans", note: "Pair with lunch or dinner" },
+  { id: "side-07", day: 1, label: "Varuval", name: "Avar", note: "Pan roast with minimal oil" },
+  { id: "side-08", day: 1, label: "Thuvaiyal", name: "Curry leaves", note: "Pair with lunch or dinner" },
+  { id: "side-09", day: 1, label: "Chutney", name: "Peanut", note: "Pair with breakfast" },
+  { id: "side-10", day: 1, label: "Kootu", name: "Snake gourd", note: "Pair with lunch or dinner" },
+  { id: "side-11", day: 2, label: "Poriyal", name: "Cauliflower", note: "Pair with lunch or dinner" },
+  { id: "side-12", day: 2, label: "Varuval", name: "Yam", note: "Pan roast with minimal oil" },
+  { id: "side-13", day: 2, label: "Thuvaiyal", name: "Mint leaves", note: "Pair with lunch or dinner" },
+  { id: "side-14", day: 2, label: "Chutney", name: "Onion", note: "Pair with breakfast" },
+  { id: "side-15", day: 2, label: "Kootu", name: "Chowchow", note: "Pair with lunch or dinner" },
+  { id: "side-16", day: 3, label: "Poriyal", name: "Beetroot", note: "Pair with lunch or dinner" },
+  { id: "side-17", day: 3, label: "Varuval", name: "Mushroom", note: "Pan roast with minimal oil" },
+  { id: "side-18", day: 3, label: "Thuvaiyal", name: "Peerkangai", note: "Pair with lunch or dinner" },
+  { id: "side-19", day: 3, label: "Chutney", name: "Lentil", note: "Pair with breakfast" },
+  { id: "side-20", day: 3, label: "Kootu", name: "Sorakkai", note: "Pair with lunch or dinner" },
+  { id: "side-21", day: 4, label: "Poriyal", name: "Lady's finger", note: "Pair with lunch or dinner" },
+  { id: "side-22", day: 4, label: "Varuval", name: "Plantain", note: "Pan roast with minimal oil" },
+  { id: "side-23", day: 4, label: "Thuvaiyal", name: "Onion & garlic", note: "Pair with lunch or dinner" },
+  { id: "side-24", day: 4, label: "Chutney", name: "Mint chutney", note: "Pair with breakfast" },
+  { id: "side-25", day: 4, label: "Kootu", name: "Pumpkin", note: "Pair with lunch or dinner" },
+  { id: "side-26", day: 5, label: "Poriyal", name: "Tindora", note: "Pair with lunch or dinner" },
+  { id: "side-27", day: 5, label: "Varuval", name: "Cauliflower", note: "Pan roast with minimal oil" },
+  { id: "side-28", day: 5, label: "Thuvaiyal", name: "Urad dal", note: "Pair with lunch or dinner" },
+  { id: "side-29", day: 5, label: "Chutney", name: "Tomato", note: "Pair with breakfast" },
+  { id: "side-30", day: 5, label: "Kootu", name: "Cucumber", note: "Pair with lunch or dinner" },
+  { id: "side-31", day: 6, label: "Poriyal", name: "Brinjal", note: "Pair with lunch or dinner" },
+  { id: "side-32", day: 6, label: "Varuval", name: "Bitter gourd", note: "Pan roast with minimal oil" },
+  { id: "side-33", day: 6, label: "Thuvaiyal", name: "Peanut", note: "Pair with lunch or dinner" },
+  { id: "side-34", day: 6, label: "Chutney", name: "Chilli", note: "Pair with breakfast" },
+  { id: "side-35", day: 6, label: "Kootu", name: "Radish", note: "Pair with lunch or dinner" }
 ];
 
 const seedPantryItems: PantryItem[] = [
@@ -1301,7 +1331,10 @@ function MenuPlanner({
               const side = candidate as Record<string, unknown>;
               return typeof side.id === "string" && typeof side.day === "number" && typeof side.label === "string" && typeof side.name === "string";
             });
-            if (restoredSides.length) setSides(restoredSides);
+            if (restoredSides.length) {
+              const restoredIds = new Set(restoredSides.map((side) => side.id));
+              setSides([...restoredSides, ...seedMenuSides.filter((side) => !restoredIds.has(side.id))]);
+            }
           }
         }
       }
