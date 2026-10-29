@@ -10,6 +10,7 @@ import * as XLSX from "xlsx";
 import {
   Award,
   Bell,
+  Camera,
   CalendarDays,
   Check,
   CircleCheckBig,
@@ -20,6 +21,7 @@ import {
   Copy,
   Download,
   ExternalLink,
+  FileText,
   Filter,
   Gift,
   Globe2,
@@ -123,7 +125,80 @@ type Expense = {
   description: string;
   category: string;
   amount: number;
+  bill?: BillAttachment;
 };
+
+type BillAttachment = {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  addedAt: string;
+};
+
+const expenseBillDatabaseName = "smart-home-expense-bills";
+const expenseBillStoreName = "bills";
+const maxBillFileSize = 25 * 1024 * 1024;
+
+function isSupportedBillFile(file: File) {
+  return file.type === "application/pdf" || file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|pdf)$/i.test(file.name);
+}
+
+function openExpenseBillDatabase() {
+  return new Promise<IDBDatabase>((resolve, reject) => {
+    const request = window.indexedDB.open(expenseBillDatabaseName, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(expenseBillStoreName)) request.result.createObjectStore(expenseBillStoreName);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error("Could not open bill storage."));
+  });
+}
+
+async function saveExpenseBill(file: File): Promise<BillAttachment> {
+  const attachment: BillAttachment = { id: crypto.randomUUID(), name: file.name, type: file.type || "application/octet-stream", size: file.size, addedAt: new Date().toISOString() };
+  const database = await openExpenseBillDatabase();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(expenseBillStoreName, "readwrite");
+      transaction.objectStore(expenseBillStoreName).put(file, attachment.id);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error ?? new Error("Could not save bill attachment."));
+      transaction.onabort = () => reject(transaction.error ?? new Error("Could not save bill attachment."));
+    });
+    return attachment;
+  } finally {
+    database.close();
+  }
+}
+
+async function readExpenseBill(id: string) {
+  const database = await openExpenseBillDatabase();
+  try {
+    return await new Promise<Blob | null>((resolve, reject) => {
+      const request = database.transaction(expenseBillStoreName, "readonly").objectStore(expenseBillStoreName).get(id);
+      request.onsuccess = () => resolve(request.result instanceof Blob ? request.result : null);
+      request.onerror = () => reject(request.error ?? new Error("Could not read bill attachment."));
+    });
+  } finally {
+    database.close();
+  }
+}
+
+async function deleteExpenseBill(id: string) {
+  const database = await openExpenseBillDatabase();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(expenseBillStoreName, "readwrite");
+      transaction.objectStore(expenseBillStoreName).delete(id);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error ?? new Error("Could not delete bill attachment."));
+      transaction.onabort = () => reject(transaction.error ?? new Error("Could not delete bill attachment."));
+    });
+  } finally {
+    database.close();
+  }
+}
 
 type MenuMeal = {
   id: string;
@@ -1488,7 +1563,9 @@ function ExpenseTracker({
           const restored = parsed.filter((candidate): candidate is Expense => {
             if (!candidate || typeof candidate !== "object") return false;
             const expense = candidate as Record<string, unknown>;
-            return typeof expense.id === "string" && typeof expense.date === "string" && typeof expense.description === "string" && typeof expense.category === "string" && typeof expense.amount === "number";
+            const bill = expense.bill;
+            const hasValidBill = bill === undefined || (Boolean(bill) && typeof bill === "object" && typeof (bill as Record<string, unknown>).id === "string" && typeof (bill as Record<string, unknown>).name === "string" && typeof (bill as Record<string, unknown>).type === "string" && typeof (bill as Record<string, unknown>).size === "number" && typeof (bill as Record<string, unknown>).addedAt === "string");
+            return typeof expense.id === "string" && typeof expense.date === "string" && typeof expense.description === "string" && typeof expense.category === "string" && typeof expense.amount === "number" && hasValidBill;
           });
           if (restored.length) setItems(restored);
         }
@@ -1545,17 +1622,37 @@ function ExpenseTracker({
     setEditorOpen(true);
   };
 
-  const saveExpense = (formData: FormData) => {
+  const saveExpense = async (formData: FormData, billFile: File | null) => {
     const description = String(formData.get("expense-description") || "").trim();
     const amount = Number(formData.get("expense-amount") || 0);
     const date = String(formData.get("expense-date") || todayString);
     const expenseCategory = String(formData.get("expense-category") || "others");
     if (!description || !Number.isFinite(amount) || amount <= 0) return;
+    if (billFile && !isSupportedBillFile(billFile)) {
+      setNotice("Please attach a JPEG, image, or PDF bill.");
+      return;
+    }
+    if (billFile && billFile.size > maxBillFileSize) {
+      setNotice("Bills must be 25 MB or smaller.");
+      return;
+    }
+    const expenseId = editingExpense?.id ?? crypto.randomUUID();
+    let bill = editingExpense?.bill;
+    if (billFile) {
+      try {
+        bill = await saveExpenseBill(billFile);
+      } catch {
+        setNotice("The bill could not be stored on this device. Please try a smaller file.");
+        return;
+      }
+    }
+    const nextExpense: Expense = { id: expenseId, date, description, category: expenseCategory, amount, ...(bill ? { bill } : {}) };
     if (editingExpense) {
-      setItems((current) => current.map((item) => (item.id === editingExpense.id ? { ...item, date, description, category: expenseCategory, amount } : item)));
+      setItems((current) => current.map((item) => (item.id === editingExpense.id ? nextExpense : item)));
+      if (billFile && editingExpense.bill) void deleteExpenseBill(editingExpense.bill.id);
       setNotice("Expense updated and saved on this device.");
     } else {
-      setItems((current) => [{ id: crypto.randomUUID(), date, description, category: expenseCategory, amount }, ...current]);
+      setItems((current) => [nextExpense, ...current]);
       setNotice("Expense added and saved on this device.");
     }
     setEditorOpen(false);
@@ -1579,7 +1676,8 @@ function ExpenseTracker({
     }
     const original = items.find((item) => item.id === selectedIds[0]);
     if (!original) return;
-    const copy = { ...original, id: crypto.randomUUID(), description: `${original.description} (copy)` };
+    const { bill: _bill, ...copySource } = original;
+    const copy = { ...copySource, id: crypto.randomUUID(), description: `${original.description} (copy)` };
     setItems((current) => [copy, ...current]);
     setSelectedIds([copy.id]);
     setNotice("Expense copied and saved on this device.");
@@ -1591,8 +1689,10 @@ function ExpenseTracker({
       return;
     }
     if (!window.confirm(`Delete ${selectedIds.length} selected expense${selectedIds.length === 1 ? "" : "s"}?`)) return;
+    const billsToDelete = items.filter((item) => selectedIds.includes(item.id)).flatMap((item) => item.bill ? [item.bill.id] : []);
     setItems((current) => current.filter((item) => !selectedIds.includes(item.id)));
     setSelectedIds([]);
+    void Promise.all(billsToDelete.map(deleteExpenseBill));
     setNotice("Selected expenses deleted from this device.");
   };
 
@@ -1609,13 +1709,28 @@ function ExpenseTracker({
   };
 
   const downloadExpenses = () => {
-    const rows = items.map((item) => ({ Date: item.date, Description: item.description, Category: item.category, Type: "Debit (Expense)", "Amount ($)": item.amount }));
+    const rows = items.map((item) => ({ Date: item.date, Description: item.description, Category: item.category, Type: "Debit (Expense)", "Amount ($)": item.amount, "Bill attachment": item.bill?.name ?? "" }));
     const worksheet = XLSX.utils.json_to_sheet(rows);
-    worksheet["!cols"] = [{ wch: 14 }, { wch: 34 }, { wch: 18 }, { wch: 18 }, { wch: 14 }];
+    worksheet["!cols"] = [{ wch: 14 }, { wch: 34 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 34 }];
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Expenses");
     XLSX.writeFile(workbook, "expenses.xlsx", { compression: true });
     setNotice("Expenses downloaded to Excel.");
+  };
+
+  const openBill = async (bill: BillAttachment) => {
+    try {
+      const file = await readExpenseBill(bill.id);
+      if (!file) {
+        setNotice("This bill attachment is unavailable on this device.");
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      setNotice("This bill attachment could not be opened.");
+    }
   };
 
   return (
@@ -1709,9 +1824,9 @@ function ExpenseTracker({
 
         <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">Showing {visibleItems.length} of {items.length} expenses{selectedIds.length ? ` · ${selectedIds.length} selected` : ""}</p>
         <div className="max-h-[560px] overflow-auto rounded-xl border border-slate-200 dark:border-white/10">
-          <table className="w-full min-w-[860px] border-collapse text-left text-sm">
-            <thead className="sticky top-0 z-10 bg-emerald-100 text-xs uppercase tracking-[0.08em] text-emerald-950 dark:bg-emerald-300 dark:text-slate-950"><tr><th className="w-14 px-3 py-3 text-center"><input type="checkbox" checked={visibleItems.length > 0 && visibleItems.every((item) => selectedIds.includes(item.id))} onChange={toggleSelectAll} aria-label="Select all visible expenses" className="h-4 w-4 rounded border-slate-300 accent-teal-600" /></th><th className="w-32 px-3 py-3">Date</th><th className="min-w-[300px] px-3 py-3">Description</th><th className="w-44 px-3 py-3">Category</th><th className="w-32 px-3 py-3 text-right">Amount ($)</th></tr></thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-white/10">{visibleItems.map((item) => <tr key={item.id} className={cn("transition-colors hover:bg-teal-50/70 dark:hover:bg-teal-300/5", selectedIds.includes(item.id) && "bg-teal-50/80 dark:bg-teal-300/10")}><td className="px-3 py-3 text-center"><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelected(item.id)} aria-label={`Select ${item.description}`} className="h-4 w-4 rounded border-slate-300 accent-teal-600" /></td><td className="px-3 py-3 tabular-nums">{item.date}</td><td className="px-3 py-3 font-medium">{item.description}</td><td className="px-3 py-3">{item.category}</td><td className="px-3 py-3 text-right font-semibold tabular-nums">{currency.format(item.amount)}</td></tr>)}</tbody>
+          <table className="w-full min-w-[1040px] border-collapse text-left text-sm">
+            <thead className="sticky top-0 z-10 bg-emerald-100 text-xs uppercase tracking-[0.08em] text-emerald-950 dark:bg-emerald-300 dark:text-slate-950"><tr><th className="w-14 px-3 py-3 text-center"><input type="checkbox" checked={visibleItems.length > 0 && visibleItems.every((item) => selectedIds.includes(item.id))} onChange={toggleSelectAll} aria-label="Select all visible expenses" className="h-4 w-4 rounded border-slate-300 accent-teal-600" /></th><th className="w-32 px-3 py-3">Date</th><th className="min-w-[300px] px-3 py-3">Description</th><th className="w-44 px-3 py-3">Category</th><th className="w-32 px-3 py-3 text-right">Amount ($)</th><th className="w-56 px-3 py-3">Bill</th></tr></thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-white/10">{visibleItems.map((item) => <tr key={item.id} className={cn("transition-colors hover:bg-teal-50/70 dark:hover:bg-teal-300/5", selectedIds.includes(item.id) && "bg-teal-50/80 dark:bg-teal-300/10")}><td className="px-3 py-3 text-center"><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelected(item.id)} aria-label={`Select ${item.description}`} className="h-4 w-4 rounded border-slate-300 accent-teal-600" /></td><td className="px-3 py-3 tabular-nums">{item.date}</td><td className="px-3 py-3 font-medium">{item.description}</td><td className="px-3 py-3">{item.category}</td><td className="px-3 py-3 text-right font-semibold tabular-nums">{currency.format(item.amount)}</td><td className="px-3 py-3">{item.bill ? <button type="button" onClick={() => void openBill(item.bill!)} className="inline-flex max-w-full items-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-left text-xs font-semibold text-teal-800 transition hover:bg-teal-100 dark:border-teal-300/30 dark:bg-teal-300/10 dark:text-teal-100"><FileText className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{item.bill.name}</span></button> : <span className="text-xs text-slate-400 dark:text-slate-500">No bill</span>}</td></tr>)}</tbody>
           </table>
         </div>
         {visibleItems.length === 0 && <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">No expenses found. Create an expense to begin tracking your spend.</p>}
@@ -1731,23 +1846,52 @@ function ExpenseEditorModal({
   expense: Expense | null;
   today: string;
   onClose: () => void;
-  onSave: (formData: FormData) => void;
+  onSave: (formData: FormData, billFile: File | null) => void | Promise<void>;
 }) {
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [selectedBill, setSelectedBill] = useState<File | null>(null);
+  const [billError, setBillError] = useState("");
+
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
 
+  const selectBill = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = "";
+    if (!file) return;
+    if (!isSupportedBillFile(file)) {
+      setBillError("Choose a JPEG, image, or PDF bill.");
+      return;
+    }
+    if (file.size > maxBillFileSize) {
+      setBillError("Bills must be 25 MB or smaller.");
+      return;
+    }
+    setSelectedBill(file);
+    setBillError("");
+  };
+
   return (
     <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
       <div className="absolute inset-0" onClick={onClose} />
       <motion.section role="dialog" aria-modal="true" aria-labelledby="expense-editor-title" initial={{ scale: 0.96, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 12 }} className="relative w-full max-w-lg rounded-[1.5rem] bg-white p-5 shadow-panel dark:bg-slate-950 sm:p-6">
         <div className="mb-5 flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">Expense</p><h2 id="expense-editor-title" className="mt-1 text-2xl font-semibold">{expense ? "Edit expense" : "Add expense"}</h2></div><button className="rounded-full p-2 hover:bg-slate-100 dark:hover:bg-white/10" onClick={onClose} aria-label="Close expense editor"><X className="h-5 w-5" /></button></div>
-        <form action={onSave} className="space-y-3">
+        <form action={(formData) => onSave(formData, selectedBill)} className="space-y-3">
           <label className="block text-sm font-medium">Date<input name="expense-date" type="date" defaultValue={expense?.date ?? todayValue} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" /></label>
           <label className="block text-sm font-medium">Description<input name="expense-description" required defaultValue={expense?.description ?? ""} placeholder="Enter description" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" /></label>
           <div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">Category<select name="expense-category" defaultValue={expense?.category ?? "Grocery"} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">{expenseCategories.map((categoryName) => <option key={categoryName} value={categoryName}>{categoryName}</option>)}</select></label><label className="block text-sm font-medium">Amount ($)<input name="expense-amount" required min="0.01" step="0.01" type="number" defaultValue={expense?.amount ?? ""} placeholder="0.00" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" /></label></div>
+          <section className="rounded-2xl border border-dashed border-teal-200 bg-teal-50/55 p-4 dark:border-teal-300/30 dark:bg-teal-300/10">
+            <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start"><div><p className="text-sm font-semibold">Bill attachment <span className="font-normal text-slate-500 dark:text-slate-400">(optional)</span></p><p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Attach a photo, WhatsApp image, or PDF. On a phone, use the camera to capture the bill.</p></div>{expense?.bill && !selectedBill && <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-teal-800 dark:bg-slate-950/50 dark:text-teal-100">Current: {expense.bill.name}</span>}</div>
+            <input ref={uploadInputRef} type="file" accept="image/*,application/pdf,.pdf" onChange={selectBill} className="sr-only" />
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={selectBill} className="sr-only" />
+            <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => uploadInputRef.current?.click()} className="inline-flex items-center gap-2 rounded-xl border border-teal-200 bg-white px-3 py-2 text-sm font-semibold text-teal-800 transition hover:bg-teal-100 dark:border-teal-300/30 dark:bg-slate-950/50 dark:text-teal-100"><Upload className="h-4 w-4" />Upload photo or PDF</button><button type="button" onClick={() => cameraInputRef.current?.click()} className="inline-flex items-center gap-2 rounded-xl border border-teal-200 bg-white px-3 py-2 text-sm font-semibold text-teal-800 transition hover:bg-teal-100 dark:border-teal-300/30 dark:bg-slate-950/50 dark:text-teal-100"><Camera className="h-4 w-4" />Use camera</button></div>
+            {selectedBill && <div className="mt-3 flex items-center gap-3 rounded-xl border border-teal-200 bg-white px-3 py-2.5 dark:border-teal-300/30 dark:bg-slate-950/50"><FileText className="h-5 w-5 shrink-0 text-teal-700 dark:text-teal-200" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{selectedBill.name}</p><p className="text-xs text-slate-500 dark:text-slate-400">{(selectedBill.size / 1024 / 1024).toFixed(1)} MB · Ready to attach</p></div><button type="button" onClick={() => setSelectedBill(null)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white" aria-label="Remove selected bill"><X className="h-4 w-4" /></button></div>}
+            {billError && <p className="mt-2 text-xs font-medium text-rose-700 dark:text-rose-200">{billError}</p>}
+          </section>
           <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white dark:bg-teal-300 dark:text-slate-950"><Save className="h-4 w-4" />{expense ? "Save expense" : "Add expense"}</button>
         </form>
       </motion.section>
