@@ -1,8 +1,8 @@
-const CACHE_NAME = "smart-home-app-shell-v1";
+const CACHE_NAME = "smart-home-app-shell-v2";
 const OFFLINE_PAGE = "/";
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.add(OFFLINE_PAGE)).then(() => self.skipWaiting()));
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("activate", (event) => {
@@ -16,10 +16,12 @@ self.addEventListener("fetch", (event) => {
 
   if (event.request.mode === "navigate") {
     event.respondWith(fetch(event.request).then((response) => {
-      const copy = response.clone();
-      void caches.open(CACHE_NAME).then((cache) => cache.put(OFFLINE_PAGE, copy));
+      if (response.ok) {
+        const copy = response.clone();
+        void caches.open(CACHE_NAME).then((cache) => cache.put(OFFLINE_PAGE, copy));
+      }
       return response;
-    }).catch(() => caches.match(OFFLINE_PAGE)));
+    }).catch(() => caches.match(OFFLINE_PAGE).then((cached) => cached ?? Response.error())));
     return;
   }
 

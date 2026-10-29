@@ -7,6 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "SMART - HOME",
     short_name: "SMART - HOME",
     description: "Family rewards, planning, supplies, expenses, and meals in one place.",
+    id: "/",
     start_url: "/",
     scope: "/",
     display: "standalone",

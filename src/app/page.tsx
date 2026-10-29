@@ -1069,7 +1069,7 @@ function PwaInstallButton() {
 
   const requestInstallation = async () => {
     if (!installPrompt) {
-      setShowInstructions(true);
+      if (isAppleDevice) setShowInstructions(true);
       return;
     }
     await installPrompt.prompt();
@@ -1078,13 +1078,13 @@ function PwaInstallButton() {
     if (result.outcome === "accepted") setIsInstalled(true);
   };
 
-  if (isInstalled) return null;
+  if (isInstalled || (!installPrompt && !isAppleDevice)) return null;
 
   return (
     <>
       <button onClick={() => void requestInstallation()} className="inline-flex h-10 items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 text-sm font-semibold text-teal-800 transition hover:-translate-y-0.5 hover:bg-teal-100 dark:border-teal-300/30 dark:bg-teal-300/10 dark:text-teal-100" aria-label="Install SMART - HOME as an app">
         <Download className="h-4 w-4" />
-        <span className="hidden sm:inline">Install app</span>
+        <span className="hidden sm:inline">{installPrompt ? "Install app" : "Add to Home Screen"}</span>
       </button>
       <AnimatePresence>
         {showInstructions && (
