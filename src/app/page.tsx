@@ -23,8 +23,10 @@ import {
   Filter,
   Gift,
   Globe2,
+  Heart,
   Home,
   LayoutDashboard,
+  Leaf,
   ListChecks,
   Mail,
   Moon,
@@ -42,6 +44,7 @@ import {
   TrendingUp,
   Trophy,
   Upload,
+  Utensils,
   Users,
   WalletCards,
   X
@@ -122,7 +125,24 @@ type Expense = {
   amount: number;
 };
 
-type Section = "dashboard" | "rewards" | "calendar" | "pantry" | "expense" | "notifications" | "settings";
+type MenuMeal = {
+  id: string;
+  day: number;
+  slot: "Breakfast" | "Lunch" | "Dinner" | "Snacks & drinks";
+  name: string;
+  isVeg: boolean;
+  swapSuggestion?: string;
+};
+
+type MenuSide = {
+  id: string;
+  day: number;
+  label: string;
+  name: string;
+  note?: string;
+};
+
+type Section = "dashboard" | "rewards" | "calendar" | "pantry" | "expense" | "menu-planner" | "notifications" | "settings";
 type CalendarView = "month" | "week" | "day" | "agenda";
 type RewardSheetChild = "jiya" | "lakhan";
 
@@ -400,6 +420,41 @@ const expenseCategories = [
   "others"
 ];
 
+const menuDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const mealSlots: MenuMeal["slot"][] = ["Breakfast", "Lunch", "Dinner"];
+
+const seedMenuMeals: MenuMeal[] = [
+  { id: "menu-01", day: 0, slot: "Breakfast", name: "Idli with Coconut chutney", isVeg: true },
+  { id: "menu-02", day: 0, slot: "Lunch", name: "Sambar rice with fries", isVeg: true, swapSuggestion: "Carrot beans poriyal or air-fried appalam" },
+  { id: "menu-03", day: 0, slot: "Dinner", name: "Chapati with mixed vegetable kurma", isVeg: true },
+  { id: "menu-04", day: 1, slot: "Breakfast", name: "Rava upma with vegetables", isVeg: true },
+  { id: "menu-05", day: 1, slot: "Lunch", name: "Lemon rice with curd", isVeg: true },
+  { id: "menu-06", day: 1, slot: "Dinner", name: "Vegetable dosa with chutney", isVeg: true },
+  { id: "menu-07", day: 2, slot: "Breakfast", name: "Pesarattu with ginger chutney", isVeg: true },
+  { id: "menu-08", day: 2, slot: "Lunch", name: "Curd rice with beetroot poriyal", isVeg: true },
+  { id: "menu-09", day: 2, slot: "Dinner", name: "Chicken curry with rice", isVeg: false },
+  { id: "menu-10", day: 3, slot: "Breakfast", name: "Pongal with sambar", isVeg: true },
+  { id: "menu-11", day: 3, slot: "Lunch", name: "Rasam rice with beans poriyal", isVeg: true },
+  { id: "menu-12", day: 3, slot: "Dinner", name: "Chapati with chana masala", isVeg: true },
+  { id: "menu-13", day: 4, slot: "Breakfast", name: "Oats dosa with tomato chutney", isVeg: true },
+  { id: "menu-14", day: 4, slot: "Lunch", name: "Vegetable biryani with raita", isVeg: true },
+  { id: "menu-15", day: 4, slot: "Dinner", name: "Fish curry with rice", isVeg: false },
+  { id: "menu-16", day: 5, slot: "Breakfast", name: "Appam with vegetable stew", isVeg: true },
+  { id: "menu-17", day: 5, slot: "Lunch", name: "Tomato rice with cucumber salad", isVeg: true },
+  { id: "menu-18", day: 5, slot: "Dinner", name: "Egg dosa with vegetable salad", isVeg: false },
+  { id: "menu-19", day: 6, slot: "Breakfast", name: "Poori with potato masala", isVeg: true, swapSuggestion: "Whole-wheat phulka with potato and peas masala" },
+  { id: "menu-20", day: 6, slot: "Lunch", name: "Chicken biryani with salad", isVeg: false },
+  { id: "menu-21", day: 6, slot: "Dinner", name: "Idiyappam with vegetable kurma", isVeg: true }
+];
+
+const seedMenuSides: MenuSide[] = [
+  { id: "side-01", day: 0, label: "Poriyal", name: "Carrot", note: "Pair with lunch or dinner" },
+  { id: "side-02", day: 0, label: "Varuval", name: "Potato", note: "Pan roast with minimal oil" },
+  { id: "side-03", day: 0, label: "Thuvaiyal", name: "Cilantro", note: "Pair with lunch or dinner" },
+  { id: "side-04", day: 0, label: "Chutney", name: "Coconut", note: "Pair with breakfast" },
+  { id: "side-05", day: 0, label: "Kootu", name: "Cabbage", note: "Pair with lunch or dinner" }
+];
+
 const seedPantryItems: PantryItem[] = [
   ...legacyGrocerySeed,
   ...householdInventorySeed.map(([purchased, category, name, quantity, unit, unitPrice], index) => ({
@@ -438,6 +493,8 @@ function App() {
   const [notifications, setNotifications] = useState(seedNotifications);
   const [pantryItems, setPantryItems] = useState(seedPantryItems);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [menuMeals, setMenuMeals] = useState(seedMenuMeals);
+  const [menuSides, setMenuSides] = useState(seedMenuSides);
   const [calendarView, setCalendarView] = useState<CalendarView>("month");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -626,7 +683,7 @@ function App() {
                     Create rewards
                   </button>
                 )}
-                {item.id === "expense" && (
+                {item.id === "menu-planner" && (
                   <div className="mt-2 space-y-2">
                     {sidebarWebGroups.map((group) => (
                       <div key={group.label}>
@@ -778,6 +835,7 @@ function App() {
               )}
               {activeSection === "pantry" && <Pantry items={pantryItems} setItems={setPantryItems} />}
               {activeSection === "expense" && <ExpenseTracker items={expenses} setItems={setExpenses} />}
+              {activeSection === "menu-planner" && <MenuPlanner meals={menuMeals} setMeals={setMenuMeals} sides={menuSides} setSides={setMenuSides} />}
               {activeSection === "notifications" && (
                 <Notifications notifications={notifications} setNotifications={setNotifications} />
               )}
@@ -870,6 +928,7 @@ const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] =
   { id: "calendar", label: "Calendar", icon: CalendarDays },
   { id: "pantry", label: "Supplies", icon: ShoppingBasket },
   { id: "expense", label: "Expense", icon: WalletCards },
+  { id: "menu-planner", label: "Menu Planner", icon: Utensils },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "settings", label: "Settings", icon: Settings }
 ];
@@ -1199,6 +1258,173 @@ function Rewards({
       </section>
     </div>
   );
+}
+
+function MenuPlanner({
+  meals,
+  setMeals,
+  sides,
+  setSides
+}: {
+  meals: MenuMeal[];
+  setMeals: React.Dispatch<React.SetStateAction<MenuMeal[]>>;
+  sides: MenuSide[];
+  setSides: React.Dispatch<React.SetStateAction<MenuSide[]>>;
+}) {
+  const [activeDay, setActiveDay] = useState(0);
+  const [view, setView] = useState<"day" | "week" | "sides">("day");
+  const [search, setSearch] = useState("");
+  const [mealFilter, setMealFilter] = useState<"all" | "veg" | "non-veg">("all");
+  const [mealEditor, setMealEditor] = useState<{ meal: MenuMeal | null; slot: MenuMeal["slot"] } | null>(null);
+  const [sideEditor, setSideEditor] = useState<MenuSide | null | "new">(null);
+  const [storageReady, setStorageReady] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("smart-home-menu-planner");
+      if (saved) {
+        const parsed: unknown = JSON.parse(saved);
+        if (parsed && typeof parsed === "object") {
+          const savedPlanner = parsed as { meals?: unknown; sides?: unknown };
+          if (Array.isArray(savedPlanner.meals)) {
+            const restoredMeals = savedPlanner.meals.filter((candidate): candidate is MenuMeal => {
+              if (!candidate || typeof candidate !== "object") return false;
+              const meal = candidate as Record<string, unknown>;
+              return typeof meal.id === "string" && typeof meal.day === "number" && typeof meal.slot === "string" && typeof meal.name === "string" && typeof meal.isVeg === "boolean";
+            });
+            if (restoredMeals.length) setMeals(restoredMeals);
+          }
+          if (Array.isArray(savedPlanner.sides)) {
+            const restoredSides = savedPlanner.sides.filter((candidate): candidate is MenuSide => {
+              if (!candidate || typeof candidate !== "object") return false;
+              const side = candidate as Record<string, unknown>;
+              return typeof side.id === "string" && typeof side.day === "number" && typeof side.label === "string" && typeof side.name === "string";
+            });
+            if (restoredSides.length) setSides(restoredSides);
+          }
+        }
+      }
+    } catch {
+      window.localStorage.removeItem("smart-home-menu-planner");
+    } finally {
+      setStorageReady(true);
+    }
+  }, [setMeals, setSides]);
+
+  useEffect(() => {
+    if (storageReady) window.localStorage.setItem("smart-home-menu-planner", JSON.stringify({ meals, sides }));
+  }, [meals, sides, storageReady]);
+
+  const searchTerm = search.trim().toLowerCase();
+  const matchesMeal = (meal: MenuMeal) => (!searchTerm || meal.name.toLowerCase().includes(searchTerm)) && (mealFilter === "all" || (mealFilter === "veg" ? meal.isVeg : !meal.isVeg));
+  const activeMeals = meals.filter((meal) => meal.day === activeDay);
+  const vegMeals = meals.filter((meal) => meal.isVeg).length;
+  const nonVegMeals = meals.length - vegMeals;
+  const flaggedMeals = meals.filter((meal) => meal.swapSuggestion).length;
+  const activeSides = sides.filter((side) => side.day === activeDay);
+  const snackMeals = activeMeals.filter((meal) => meal.slot === "Snacks & drinks" && matchesMeal(meal));
+
+  const saveMeal = (formData: FormData, existing: MenuMeal | null) => {
+    const day = Math.min(6, Math.max(0, Number(formData.get("menu-day") || activeDay)));
+    const slot = String(formData.get("menu-slot") || "Breakfast") as MenuMeal["slot"];
+    const name = String(formData.get("menu-name") || "").trim();
+    const isVeg = String(formData.get("menu-type") || "Veg") === "Veg";
+    const swapSuggestion = String(formData.get("menu-swap") || "").trim();
+    if (!name) return;
+    const nextMeal: MenuMeal = { id: existing?.id ?? crypto.randomUUID(), day, slot, name, isVeg, ...(swapSuggestion ? { swapSuggestion } : {}) };
+    setMeals((current) => existing ? current.map((meal) => meal.id === existing.id ? nextMeal : meal) : [...current, nextMeal]);
+    setMealEditor(null);
+    setNotice(existing ? "Meal updated and saved on this device." : "Meal added and saved on this device.");
+  };
+
+  const saveSide = (formData: FormData, existing: MenuSide | null) => {
+    const label = String(formData.get("side-label") || "Side").trim();
+    const name = String(formData.get("side-name") || "").trim();
+    const note = String(formData.get("side-note") || "").trim();
+    if (!name) return;
+    const nextSide: MenuSide = { id: existing?.id ?? crypto.randomUUID(), day: activeDay, label, name, ...(note ? { note } : {}) };
+    setSides((current) => existing ? current.map((side) => side.id === existing.id ? nextSide : side) : [...current, nextSide]);
+    setSideEditor(null);
+    setNotice(existing ? "Side pairing updated and saved on this device." : "Side pairing added and saved on this device.");
+  };
+
+  const applySwap = (meal: MenuMeal) => {
+    if (!meal.swapSuggestion) return;
+    setMeals((current) => current.map((item) => item.id === meal.id ? { ...item, name: meal.swapSuggestion ?? item.name, swapSuggestion: undefined } : item));
+    setNotice("Healthy swap applied and saved on this device.");
+  };
+
+  const applyAllSwaps = () => {
+    if (!flaggedMeals) return;
+    setMeals((current) => current.map((meal) => meal.swapSuggestion ? { ...meal, name: meal.swapSuggestion, swapSuggestion: undefined } : meal));
+    setNotice(`${flaggedMeals} healthier swap${flaggedMeals === 1 ? "" : "s"} applied and saved on this device.`);
+  };
+
+  const moveDay = (offset: number) => setActiveDay((current) => (current + offset + menuDays.length) % menuDays.length);
+
+  return (
+    <div className="space-y-4">
+      <section className="rounded-[1.5rem] border border-white/80 bg-white/80 p-5 shadow-panel backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/60 sm:p-6">
+        <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-center">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 dark:bg-amber-300/15 dark:text-amber-200"><Utensils className="h-5 w-5" /></div>
+            <div><div className="flex flex-wrap items-center gap-2"><h2 className="text-2xl font-semibold">Weekly Food Planner</h2><span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-300/15 dark:text-emerald-200">South Indian Menu</span></div><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Balanced weekly meals with editable South Indian pairings.</p></div>
+          </div>
+          <div className="flex flex-wrap gap-2"><button onClick={applyAllSwaps} disabled={!flaggedMeals} className={cn("inline-flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition", flaggedMeals ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-300/30 dark:bg-rose-300/10 dark:text-rose-200" : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-slate-600")}><Heart className="h-4 w-4" />{flaggedMeals} needs swap</button><button onClick={() => setMealEditor({ meal: null, slot: "Snacks & drinks" })} className="inline-flex items-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-3.5 py-2.5 text-sm font-semibold text-teal-700 transition hover:bg-teal-100 dark:border-teal-300/30 dark:bg-teal-300/10 dark:text-teal-200"><Plus className="h-4 w-4" />Add snacks & drinks</button><button onClick={() => setMealEditor({ meal: null, slot: "Breakfast" })} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-3.5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950"><Plus className="h-4 w-4" />Add meal</button></div>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MenuMetric label="Meals planned" value={meals.length} detail="Planned this week" icon={CalendarDays} tone="bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-white" />
+          <MenuMetric label="Veg meals" value={vegMeals} detail="Plant-forward choices" icon={Leaf} tone="bg-emerald-100 text-emerald-700 dark:bg-emerald-300/15 dark:text-emerald-200" />
+          <MenuMetric label="Non-veg meals" value={nonVegMeals} detail="Fish, chicken & eggs" icon={Utensils} tone="bg-amber-100 text-amber-700 dark:bg-amber-300/15 dark:text-amber-200" />
+          <MenuMetric label="Needs swap" value={flaggedMeals} detail="Lower-oil alternatives" icon={Heart} tone="bg-sky-100 text-sky-700 dark:bg-sky-300/15 dark:text-sky-200" />
+        </div>
+      </section>
+
+      <section className="flex flex-col justify-between gap-3 rounded-[1.5rem] border border-white/80 bg-white/80 p-3 shadow-panel backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/60 lg:flex-row lg:items-center">
+        <div className="flex w-full flex-wrap gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/10 lg:w-auto"><button onClick={() => setView("day")} className={cn("rounded-lg px-3 py-2 text-sm font-semibold transition", view === "day" ? "bg-white text-slate-950 shadow-sm dark:bg-slate-950 dark:text-white" : "text-slate-500 dark:text-slate-400")}><CalendarDays className="mr-1.5 inline h-4 w-4" />Day view</button><button onClick={() => setView("week")} className={cn("rounded-lg px-3 py-2 text-sm font-semibold transition", view === "week" ? "bg-white text-slate-950 shadow-sm dark:bg-slate-950 dark:text-white" : "text-slate-500 dark:text-slate-400")}><ListChecks className="mr-1.5 inline h-4 w-4" />Weekly matrix</button><button onClick={() => setView("sides")} className={cn("rounded-lg px-3 py-2 text-sm font-semibold transition", view === "sides" ? "bg-white text-slate-950 shadow-sm dark:bg-slate-950 dark:text-white" : "text-slate-500 dark:text-slate-400")}><Utensils className="mr-1.5 inline h-4 w-4" />Sides & condiments</button></div>
+        <div className="flex flex-col gap-2 sm:flex-row"><label className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search meals" className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-teal-400 dark:border-white/10 dark:bg-white/5 sm:w-48" /></label><div className="flex rounded-xl bg-slate-100 p-1 dark:bg-white/10">{(["all", "veg", "non-veg"] as const).map((filter) => <button key={filter} onClick={() => setMealFilter(filter)} className={cn("rounded-lg px-3 py-1.5 text-sm font-semibold capitalize transition", mealFilter === filter ? "bg-white text-slate-950 shadow-sm dark:bg-slate-950 dark:text-white" : "text-slate-500 dark:text-slate-400")}>{filter === "non-veg" ? "Non-Veg" : filter === "veg" ? "Veg" : "All"}</button>)}</div></div>
+      </section>
+
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-7">{menuDays.map((dayName, index) => <button key={dayName} onClick={() => setActiveDay(index)} className={cn("rounded-2xl border px-3 py-3 text-center transition", activeDay === index ? "border-amber-600 bg-amber-600 text-white shadow-glow" : "border-slate-200 bg-white/75 text-slate-700 hover:bg-amber-50 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-200 dark:hover:bg-white/10")}><span className="block text-[11px] font-semibold uppercase tracking-[0.12em] opacity-75">Day {index + 1}</span><span className="mt-1 block text-sm font-semibold">{dayName}</span></button>)}</div>
+
+      {view === "week" ? <WeeklyMenuMatrix meals={meals} activeDay={activeDay} onEdit={(meal) => setMealEditor({ meal, slot: meal.slot })} /> : view === "sides" ? <SidesPanel day={activeDay} sides={activeSides} onCreate={() => setSideEditor("new")} onEdit={(side) => setSideEditor(side)} /> : <>
+        <section className="flex items-center justify-between rounded-[1.5rem] border border-white/80 bg-white/80 p-4 shadow-panel backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/60"><button onClick={() => moveDay(-1)} className="rounded-xl border border-slate-200 p-2 hover:bg-slate-100 dark:border-white/10 dark:hover:bg-white/10" aria-label="Previous day"><ChevronLeft className="h-5 w-5" /></button><div className="min-w-0 flex-1 px-3"><h3 className="text-lg font-semibold">{menuDays[activeDay]}&apos;s Menu</h3><p className="text-sm text-slate-500 dark:text-slate-400">Breakfast, lunch, dinner, snacks and authentic side pairings</p></div><button onClick={() => moveDay(1)} className="rounded-xl border border-slate-200 p-2 hover:bg-slate-100 dark:border-white/10 dark:hover:bg-white/10" aria-label="Next day"><ChevronRight className="h-5 w-5" /></button></section>
+        <div className="grid gap-4 xl:grid-cols-3">{mealSlots.map((slot) => { const meal = activeMeals.find((item) => item.slot === slot && matchesMeal(item)); return <MealCard key={slot} slot={slot} meal={meal} day={activeDay} onEdit={(entry) => setMealEditor({ meal: entry, slot: entry.slot })} onCreate={() => setMealEditor({ meal: null, slot })} onSwap={applySwap} />; })}</div>
+        {snackMeals.length > 0 && <Panel title="Snacks & drinks"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{snackMeals.map((meal) => <button key={meal.id} onClick={() => setMealEditor({ meal, slot: meal.slot })} className="rounded-2xl border border-slate-200 p-4 text-left transition hover:border-teal-400 hover:bg-teal-50 dark:border-white/10 dark:hover:bg-teal-300/10"><p className="font-semibold">{meal.name}</p><p className={cn("mt-1 text-sm", meal.isVeg ? "text-emerald-600" : "text-amber-600")}>{meal.isVeg ? "Veg" : "Non-Veg"}</p></button>)}</div></Panel>}
+        <SidesPanel day={activeDay} sides={activeSides} onCreate={() => setSideEditor("new")} onEdit={(side) => setSideEditor(side)} />
+      </>}
+      {notice && <p className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-800 dark:border-teal-300/30 dark:bg-teal-300/10 dark:text-teal-100">{notice}</p>}
+      <AnimatePresence>{mealEditor && <MenuMealEditorModal meal={mealEditor.meal} activeDay={activeDay} initialSlot={mealEditor.slot} onClose={() => setMealEditor(null)} onSave={(formData) => saveMeal(formData, mealEditor.meal)} />}{sideEditor && <MenuSideEditorModal side={sideEditor === "new" ? null : sideEditor} day={activeDay} onClose={() => setSideEditor(null)} onSave={(formData) => saveSide(formData, sideEditor === "new" ? null : sideEditor)} />}</AnimatePresence>
+    </div>
+  );
+}
+
+function MenuMetric({ label, value, detail, icon: Icon, tone }: { label: string; value: number; detail: string; icon: typeof ListChecks; tone: string }) {
+  return <div className={cn("rounded-xl border border-slate-200 p-4 dark:border-white/10", tone)}><div className="flex items-center gap-3"><Icon className="h-5 w-5" /><div><p className="text-sm font-semibold">{value} {label}</p><p className="text-xs opacity-80">{detail}</p></div></div></div>;
+}
+
+function MealCard({ slot, meal, day, onEdit, onCreate, onSwap }: { slot: MenuMeal["slot"]; meal?: MenuMeal; day: number; onEdit: (meal: MenuMeal) => void; onCreate: () => void; onSwap: (meal: MenuMeal) => void }) {
+  const slotStyles = { Breakfast: "border-slate-200", Lunch: "border-amber-300", Dinner: "border-sky-200", "Snacks & drinks": "border-teal-200" } as const;
+  return <section className={cn("flex min-h-[270px] flex-col rounded-[1.5rem] border bg-white/85 p-5 shadow-panel dark:bg-slate-950/60", slotStyles[slot])}><div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">{slot}</p>{meal && <div className="flex items-center gap-2"><span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", meal.isVeg ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-300/15 dark:text-emerald-200" : "bg-amber-100 text-amber-700 dark:bg-amber-300/15 dark:text-amber-200")}>{meal.isVeg ? "Veg" : "Non-Veg"}</span><button onClick={() => onEdit(meal)} className="rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-white/10" aria-label={`Edit ${slot}`}><Pencil className="h-4 w-4" /></button></div>}</div>{meal ? <><p className="mt-7 text-lg font-semibold">{meal.name}</p>{meal.swapSuggestion && <div className="mt-5 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-300/30 dark:bg-amber-300/10 dark:text-amber-100"><p className="font-semibold">Consider a lower-oil swap</p><p className="mt-1">{meal.swapSuggestion}</p><button onClick={() => onSwap(meal)} className="mt-3 w-full rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500">Apply healthy swap</button></div>}</> : <div className="flex flex-1 flex-col items-center justify-center text-center"><p className="text-sm text-slate-500 dark:text-slate-400">No matching meal planned.</p><button onClick={onCreate} className="mt-3 rounded-xl border border-teal-300 px-3 py-2 text-sm font-semibold text-teal-700 hover:bg-teal-50 dark:border-teal-300/40 dark:text-teal-200 dark:hover:bg-teal-300/10">Add meal</button></div>}<div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-4 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400"><span>Day {day + 1} · {menuDays[day]}</span>{meal && <button onClick={() => onEdit(meal)} className="font-semibold text-amber-700 dark:text-amber-200">Change</button>}</div></section>;
+}
+
+function SidesPanel({ day, sides, onCreate, onEdit }: { day: number; sides: MenuSide[]; onCreate: () => void; onEdit: (side: MenuSide) => void }) {
+  return <Panel title={`Sides & Condiments Pairings for ${menuDays[day]}`} action="Add pairing" onAction={onCreate}><p className="-mt-3 mb-4 text-sm text-slate-500 dark:text-slate-400">Traditional pairings to complement the day&apos;s meals.</p><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{sides.map((side) => <button key={side.id} onClick={() => onEdit(side)} className="rounded-2xl border border-slate-200 p-4 text-left transition hover:border-teal-400 hover:bg-teal-50 dark:border-white/10 dark:hover:bg-teal-300/10"><p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">{side.label}</p><p className="mt-2 font-semibold">{side.name}</p>{side.note && <p className="mt-5 text-xs text-slate-500 dark:text-slate-400">{side.note}</p>}</button>)}{!sides.length && <button onClick={onCreate} className="rounded-2xl border border-dashed border-slate-300 p-5 text-left text-sm text-slate-500 hover:border-teal-400 hover:text-teal-700 dark:border-white/20 dark:text-slate-400">Add a side or condiment pairing.</button>}</div></Panel>;
+}
+
+function WeeklyMenuMatrix({ meals, activeDay, onEdit }: { meals: MenuMeal[]; activeDay: number; onEdit: (meal: MenuMeal) => void }) {
+  return <Panel title="Weekly menu matrix"><div className="overflow-x-auto"><table className="w-full min-w-[860px] text-left text-sm"><thead className="border-b border-slate-200 text-xs uppercase tracking-[0.1em] text-slate-500 dark:border-white/10 dark:text-slate-400"><tr><th className="pb-3 font-semibold">Meal</th>{menuDays.map((day) => <th key={day} className="pb-3 px-2 text-center font-semibold">{day.slice(0, 3)}</th>)}</tr></thead><tbody className="divide-y divide-slate-200 dark:divide-white/10">{mealSlots.map((slot) => <tr key={slot}><td className="py-3 font-semibold">{slot}</td>{menuDays.map((_, day) => { const meal = meals.find((item) => item.day === day && item.slot === slot); return <td key={day} className={cn("p-2 text-center", day === activeDay && "bg-amber-50/70 dark:bg-amber-300/10")}>{meal ? <button onClick={() => onEdit(meal)} className="rounded-lg px-2 py-1 text-left text-xs hover:bg-white dark:hover:bg-slate-950">{meal.name}</button> : <span className="text-xs text-slate-400">—</span>}</td>; })}</tr>)}</tbody></table></div></Panel>;
+}
+
+function MenuMealEditorModal({ meal, activeDay, initialSlot, onClose, onSave }: { meal: MenuMeal | null; activeDay: number; initialSlot: MenuMeal["slot"]; onClose: () => void; onSave: (formData: FormData) => void }) {
+  useEffect(() => { const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); }; window.addEventListener("keydown", closeOnEscape); return () => window.removeEventListener("keydown", closeOnEscape); }, [onClose]);
+  return <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><div className="absolute inset-0" onClick={onClose} /><motion.section role="dialog" aria-modal="true" aria-labelledby="menu-meal-editor" initial={{ scale: 0.96, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 12 }} className="relative w-full max-w-lg rounded-[1.5rem] bg-white p-5 shadow-panel dark:bg-slate-950 sm:p-6"><div className="mb-5 flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">Menu planner</p><h2 id="menu-meal-editor" className="mt-1 text-2xl font-semibold">{meal ? "Edit meal" : "Add meal"}</h2></div><button className="rounded-full p-2 hover:bg-slate-100 dark:hover:bg-white/10" onClick={onClose} aria-label="Close meal editor"><X className="h-5 w-5" /></button></div><form action={onSave} className="space-y-3"><div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">Day<select name="menu-day" defaultValue={meal?.day ?? activeDay} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-400 dark:border-white/10 dark:bg-white/5">{menuDays.map((dayName, index) => <option key={dayName} value={index}>{dayName}</option>)}</select></label><label className="block text-sm font-medium">Meal<select name="menu-slot" defaultValue={meal?.slot ?? initialSlot} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-400 dark:border-white/10 dark:bg-white/5">{[...mealSlots, "Snacks & drinks" as const].map((slot) => <option key={slot} value={slot}>{slot}</option>)}</select></label></div><label className="block text-sm font-medium">Meal name<input required name="menu-name" defaultValue={meal?.name ?? ""} placeholder="e.g., Vegetable millet upma" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-400 dark:border-white/10 dark:bg-white/5" /></label><div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">Preference<select name="menu-type" defaultValue={meal?.isVeg === false ? "Non-Veg" : "Veg"} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-400 dark:border-white/10 dark:bg-white/5"><option>Veg</option><option>Non-Veg</option></select></label><label className="block text-sm font-medium">Optional healthy swap<input name="menu-swap" defaultValue={meal?.swapSuggestion ?? ""} placeholder="Lower-oil alternative" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-400 dark:border-white/10 dark:bg-white/5" /></label></div><button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white dark:bg-teal-300 dark:text-slate-950"><Save className="h-4 w-4" />{meal ? "Save meal" : "Add meal"}</button></form></motion.section></motion.div>;
+}
+
+function MenuSideEditorModal({ side, day, onClose, onSave }: { side: MenuSide | null; day: number; onClose: () => void; onSave: (formData: FormData) => void }) {
+  useEffect(() => { const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); }; window.addEventListener("keydown", closeOnEscape); return () => window.removeEventListener("keydown", closeOnEscape); }, [onClose]);
+  return <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><div className="absolute inset-0" onClick={onClose} /><motion.section role="dialog" aria-modal="true" aria-labelledby="menu-side-editor" initial={{ scale: 0.96, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 12 }} className="relative w-full max-w-lg rounded-[1.5rem] bg-white p-5 shadow-panel dark:bg-slate-950 sm:p-6"><div className="mb-5 flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">{menuDays[day]}</p><h2 id="menu-side-editor" className="mt-1 text-2xl font-semibold">{side ? "Edit pairing" : "Add pairing"}</h2></div><button className="rounded-full p-2 hover:bg-slate-100 dark:hover:bg-white/10" onClick={onClose} aria-label="Close side editor"><X className="h-5 w-5" /></button></div><form action={onSave} className="space-y-3"><label className="block text-sm font-medium">Pairing type<input name="side-label" defaultValue={side?.label ?? "Poriyal"} placeholder="Poriyal" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-400 dark:border-white/10 dark:bg-white/5" /></label><label className="block text-sm font-medium">Ingredient or dish<input required name="side-name" defaultValue={side?.name ?? ""} placeholder="Carrot" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-400 dark:border-white/10 dark:bg-white/5" /></label><label className="block text-sm font-medium">Note<input name="side-note" defaultValue={side?.note ?? ""} placeholder="Pair with lunch or dinner" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-400 dark:border-white/10 dark:bg-white/5" /></label><button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white dark:bg-teal-300 dark:text-slate-950"><Save className="h-4 w-4" />Save pairing</button></form></motion.section></motion.div>;
 }
 
 function ExpenseTracker({
