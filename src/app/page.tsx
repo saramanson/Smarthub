@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
+import * as XLSX from "xlsx";
 import {
   Award,
   Bell,
@@ -16,6 +17,7 @@ import {
   ChevronRight,
   Clock,
   Copy,
+  Download,
   ExternalLink,
   Filter,
   Gift,
@@ -29,6 +31,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Save,
   Settings,
   ShoppingBasket,
   Sparkles,
@@ -36,6 +39,7 @@ import {
   Sun,
   Trash2,
   Trophy,
+  Upload,
   Users,
   WalletCards,
   X
@@ -1175,6 +1179,12 @@ function Pantry({
   const [pendingOnly, setPendingOnly] = useState(false);
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
+  const [selectedSupplyIds, setSelectedSupplyIds] = useState<string[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [notice, setNotice] = useState("");
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const savedSuppliesLoaded = useRef(false);
   const currency = useMemo(() => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }), []);
   const categories = useMemo(() => Array.from(new Set(items.map((item) => item.category))), [items]);
   const visibleItems = useMemo(() => {
@@ -1205,19 +1215,38 @@ function Pantry({
   const highestCategorySpend = Math.max(...categorySummaries.map((summary) => summary.spend), 1);
   const categoryColors = ["bg-teal-500", "bg-sky-500", "bg-rose-500", "bg-amber-500", "bg-emerald-500", "bg-violet-500", "bg-cyan-500", "bg-lime-500", "bg-pink-500"];
 
+  useEffect(() => {
+    if (savedSuppliesLoaded.current) return;
+    savedSuppliesLoaded.current = true;
+    try {
+      const saved = window.localStorage.getItem("smart-home-supplies");
+      if (!saved) return;
+      const parsed: unknown = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return;
+      const restored = parsed.filter((candidate): candidate is PantryItem => {
+        if (!candidate || typeof candidate !== "object") return false;
+        const item = candidate as Record<string, unknown>;
+        return typeof item.id === "string" && typeof item.purchased === "boolean" && typeof item.category === "string" && typeof item.name === "string" && typeof item.quantity === "number" && typeof item.unit === "string" && typeof item.unitPrice === "number";
+      });
+      if (restored.length) setItems(restored);
+    } catch {
+      window.localStorage.removeItem("smart-home-supplies");
+    }
+  }, [setItems]);
+
   const togglePurchased = (id: string) => {
     setItems((current) => current.map((item) => (item.id === id ? { ...item, purchased: !item.purchased } : item)));
+    setIsDirty(true);
   };
 
-  const deleteItem = (id: string, name: string) => {
-    if (!window.confirm(`Delete ${name} from the supplies list?`)) return;
-    setItems((current) => current.filter((item) => item.id !== id));
+  const toggleSelected = (id: string) => {
+    setSelectedSupplyIds((current) => (current.includes(id) ? current.filter((selectedId) => selectedId !== id) : [...current, id]));
   };
 
-  const updateNumber = (id: string, field: "quantity" | "unitPrice", value: string) => {
-    const numericValue = Number(value);
-    if (!Number.isFinite(numericValue) || numericValue < 0) return;
-    setItems((current) => current.map((item) => (item.id === id ? { ...item, [field]: numericValue } : item)));
+  const toggleSelectAllVisible = () => {
+    const visibleIds = visibleItems.map((item) => item.id);
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedSupplyIds.includes(id));
+    setSelectedSupplyIds((current) => (allVisibleSelected ? current.filter((id) => !visibleIds.includes(id)) : Array.from(new Set([...current, ...visibleIds]))));
   };
 
   const manageItem = (id: string, formData: FormData) => {
@@ -1227,6 +1256,8 @@ function Pantry({
     if (!Number.isFinite(quantity) || quantity < 0 || !Number.isFinite(unitPrice) || unitPrice < 0) return;
     setItems((current) => current.map((item) => (item.id === id ? { ...item, quantity, unit, unitPrice } : item)));
     setEditingItem(null);
+    setIsDirty(true);
+    setNotice("Supply item updated. Select Save to keep this version on this device.");
   };
 
   const createItem = (formData: FormData) => {
@@ -1241,6 +1272,108 @@ function Pantry({
       ...current
     ]);
     setAddItemOpen(false);
+    setIsDirty(true);
+    setNotice("Supply item created. Select Save to keep this version on this device.");
+  };
+
+  const copySelectedSupply = () => {
+    if (selectedSupplyIds.length !== 1) {
+      setNotice("Select one supply item to copy.");
+      return;
+    }
+    const original = items.find((item) => item.id === selectedSupplyIds[0]);
+    if (!original) return;
+    const copy = { ...original, id: crypto.randomUUID(), name: `${original.name} (copy)`, purchased: false };
+    setItems((current) => [copy, ...current]);
+    setSelectedSupplyIds([copy.id]);
+    setIsDirty(true);
+    setNotice("Supply item copied. Select Save to keep this version on this device.");
+  };
+
+  const deleteSelectedSupplies = () => {
+    if (!selectedSupplyIds.length) {
+      setNotice("Select one or more supply items to delete.");
+      return;
+    }
+    if (!window.confirm(`Delete ${selectedSupplyIds.length} selected supply item${selectedSupplyIds.length === 1 ? "" : "s"}?`)) return;
+    setItems((current) => current.filter((item) => !selectedSupplyIds.includes(item.id)));
+    setSelectedSupplyIds([]);
+    setIsDirty(true);
+    setNotice("Selected supply items deleted. Select Save to keep this version on this device.");
+  };
+
+  const editSelectedSupply = () => {
+    if (selectedSupplyIds.length !== 1) {
+      setNotice("Select one supply item to edit.");
+      return;
+    }
+    const selected = items.find((item) => item.id === selectedSupplyIds[0]);
+    if (selected) setEditingItem(selected);
+  };
+
+  const saveSupplies = () => {
+    window.localStorage.setItem("smart-home-supplies", JSON.stringify(items));
+    setIsDirty(false);
+    setNotice("Supplies saved on this device.");
+  };
+
+  const downloadSuppliesExcel = () => {
+    const rows = items.map((item) => ({
+      Status: item.purchased ? "In stock" : "Restock needed",
+      Category: item.category,
+      "Item Description": item.name,
+      Quantity: item.quantity,
+      Unit: item.unit,
+      "Unit Price": item.unitPrice,
+      Subtotal: item.quantity * item.unitPrice
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet["!cols"] = [{ wch: 18 }, { wch: 24 }, { wch: 34 }, { wch: 11 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Supplies");
+    XLSX.writeFile(workbook, "supplies-template.xlsx", { compression: true });
+    setNotice("Supplies template downloaded. Update the rows and upload the completed file when ready.");
+  };
+
+  const uploadSuppliesExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      if (!sheet) throw new Error("Missing worksheet");
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+      const readCell = (row: Record<string, unknown>, fields: string[]) => fields.map((field) => row[field]).find((value) => value !== undefined && value !== "");
+      const numberFromCell = (value: unknown) => typeof value === "number" ? value : Number(String(value).replace(/[^0-9.-]/g, ""));
+      const imported = rows.map((row, index) => {
+        const name = String(readCell(row, ["Item Description", "Item", "Item (English / Tamil)"]) || "").trim();
+        const categoryName = String(readCell(row, ["Category"]) || "").trim();
+        const quantity = numberFromCell(readCell(row, ["Quantity"]));
+        const unitPrice = numberFromCell(readCell(row, ["Unit Price", "Price"]));
+        const status = readCell(row, ["Status", "Purchased", "In stock"]);
+        const statusText = String(status).trim().toLowerCase();
+        return {
+          id: `upload-${crypto.randomUUID()}-${index}`,
+          purchased: status === true || ["true", "yes", "checked", "purchased", "in stock"].includes(statusText),
+          category: categoryName,
+          name,
+          quantity,
+          unit: String(readCell(row, ["Unit"]) || "item").trim() || "item",
+          unitPrice
+        };
+      }).filter((item): item is PantryItem => Boolean(item.name && item.category && Number.isFinite(item.quantity) && item.quantity >= 0 && Number.isFinite(item.unitPrice) && item.unitPrice >= 0));
+      if (!imported.length) {
+        setNotice("No valid supply rows were found. Download the template and keep its column headers.");
+        return;
+      }
+      setItems(imported);
+      setSelectedSupplyIds([]);
+      setIsDirty(true);
+      setNotice(`${imported.length} supply items imported. Select Save to keep this version on this device.`);
+    } catch {
+      setNotice("That Excel file could not be read. Download the template and use its column headers.");
+    }
   };
 
   return (
@@ -1334,71 +1467,101 @@ function Pantry({
         </div>
       </Panel>
 
-      <Panel title="Supplies list" action="Add item" onAction={() => setAddItemOpen(true)}>
-        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center">
-          <label className="relative block min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search supplies" className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" />
-          </label>
-          <select value={category} onChange={(event) => setCategory(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">
-            <option value="All">All categories</option>
-            {categories.map((categoryName) => (
-              <option key={categoryName} value={categoryName}>{categoryName}</option>
-            ))}
-          </select>
-          <button onClick={() => setPendingOnly((current) => !current)} className={cn("inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold transition", pendingOnly ? "border-teal-600 bg-teal-600 text-white dark:border-teal-300 dark:bg-teal-300 dark:text-slate-950" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10")}>
-            <Filter className="h-4 w-4" />
-            Pending only
-          </button>
+      <Panel title="Manage supplies">
+        <input ref={uploadInputRef} type="file" accept=".xlsx,.xls" onChange={uploadSuppliesExcel} className="sr-only" />
+        <div className="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5">
+          <div className="flex flex-col justify-between gap-3 p-3 xl:flex-row xl:items-center">
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => uploadInputRef.current?.click()} className="inline-flex items-center gap-2 rounded-xl bg-amber-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-800">
+                <Upload className="h-4 w-4" />
+                Upload Excel
+              </button>
+              <button onClick={() => setFiltersOpen((current) => !current)} className={cn("inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition", filtersOpen ? "border-teal-600 bg-teal-600 text-white dark:border-teal-300 dark:bg-teal-300 dark:text-slate-950" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10")}>
+                <Filter className="h-4 w-4" />
+                Filter supplies
+              </button>
+              <button onClick={downloadSuppliesExcel} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10">
+                <Download className="h-4 w-4" />
+                Download Excel
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2 xl:justify-end">
+              <button onClick={() => setAddItemOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10">
+                <Plus className="h-4 w-4" />
+                Create
+              </button>
+              <button onClick={copySelectedSupply} disabled={selectedSupplyIds.length !== 1} className={cn("inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition", selectedSupplyIds.length === 1 ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10" : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-slate-600")}>
+                <Copy className="h-4 w-4" />
+                Copy
+              </button>
+              <button onClick={deleteSelectedSupplies} disabled={!selectedSupplyIds.length} className={cn("inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition", selectedSupplyIds.length ? "border-rose-300 bg-white text-rose-700 hover:bg-rose-50 dark:border-rose-300/30 dark:bg-white/5 dark:text-rose-200 dark:hover:bg-rose-300/10" : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-slate-600")}>
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </button>
+              <button onClick={editSelectedSupply} disabled={selectedSupplyIds.length !== 1} className={cn("inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition", selectedSupplyIds.length === 1 ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10" : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-slate-600")}>
+                <Pencil className="h-4 w-4" />
+                Edit
+              </button>
+              <button onClick={saveSupplies} className={cn("inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition", isDirty ? "bg-emerald-700 text-white hover:bg-emerald-600" : "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-300/15 dark:text-emerald-200 dark:hover:bg-emerald-300/25")}>
+                <Save className="h-4 w-4" />
+                Save{isDirty ? " *" : ""}
+              </button>
+            </div>
+          </div>
+          {notice && <p className="border-t border-slate-200 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-slate-300">{notice}</p>}
+          <AnimatePresence initial={false}>
+            {filtersOpen && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden border-t border-slate-200 dark:border-white/10">
+                <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center">
+                  <label className="relative block min-w-0 flex-1">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search supplies" className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" />
+                  </label>
+                  <select value={category} onChange={(event) => setCategory(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">
+                    <option value="All">All categories</option>
+                    {categories.map((categoryName) => (
+                      <option key={categoryName} value={categoryName}>{categoryName}</option>
+                    ))}
+                  </select>
+                  <button onClick={() => setPendingOnly((current) => !current)} className={cn("inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold transition", pendingOnly ? "border-teal-600 bg-teal-600 text-white dark:border-teal-300 dark:bg-teal-300 dark:text-slate-950" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10")}>
+                    <Filter className="h-4 w-4" />
+                    Restock needed
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
+        <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">Showing {visibleItems.length} of {items.length} supply items{selectedSupplyIds.length ? ` · ${selectedSupplyIds.length} selected` : ""}</p>
         <div className="max-h-[560px] overflow-auto rounded-xl border border-slate-200 dark:border-white/10">
-          <table className="w-full min-w-[1060px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[950px] border-collapse text-left text-sm">
             <thead className="sticky top-0 z-10 bg-amber-800 text-xs uppercase tracking-[0.08em] text-white">
               <tr>
-                <th className="w-20 px-3 py-3 text-center">Status</th>
-                <th className="min-w-36 px-3 py-3">Category</th>
-                <th className="min-w-[330px] px-3 py-3">Item (English / Tamil)</th>
+                <th className="w-14 px-3 py-3 text-center"><input type="checkbox" checked={visibleItems.length > 0 && visibleItems.every((item) => selectedSupplyIds.includes(item.id))} onChange={toggleSelectAllVisible} aria-label="Select all visible supply items" className="h-4 w-4 rounded border-slate-300 accent-teal-600" /></th>
+                <th className="w-16 px-3 py-3 text-center">Status</th>
+                <th className="min-w-40 px-3 py-3">Category</th>
+                <th className="min-w-[300px] px-3 py-3">Item description</th>
                 <th className="w-24 px-3 py-3 text-right">Quantity</th>
                 <th className="w-24 px-3 py-3">Unit</th>
                 <th className="w-28 px-3 py-3 text-right">Unit price</th>
                 <th className="w-28 px-3 py-3 text-right">Subtotal</th>
-                <th className="w-24 px-3 py-3 text-center">Manage</th>
-                <th className="w-20 px-3 py-3 text-center">Delete</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-white/10">
               {visibleItems.map((item) => {
                 const subtotal = item.quantity * item.unitPrice;
+                const selected = selectedSupplyIds.includes(item.id);
                 return (
-                  <tr key={item.id} className={cn("transition-colors hover:bg-teal-50/70 dark:hover:bg-teal-300/5", item.purchased && "bg-slate-50/80 text-slate-400 dark:bg-white/5 dark:text-slate-500")}>
-                    <td className="px-3 py-2.5 text-center">
-                      <input type="checkbox" checked={item.purchased} onChange={() => togglePurchased(item.id)} aria-label={`Mark ${item.name} as purchased`} className="h-4 w-4 rounded border-slate-300 accent-teal-600" />
-                    </td>
+                  <tr key={item.id} className={cn("transition-colors hover:bg-teal-50/70 dark:hover:bg-teal-300/5", selected && "bg-teal-50/80 dark:bg-teal-300/10", item.purchased && "text-slate-400 dark:text-slate-500")}>
+                    <td className="px-3 py-2.5 text-center"><input type="checkbox" checked={selected} onChange={() => toggleSelected(item.id)} aria-label={`Select ${item.name}`} className="h-4 w-4 rounded border-slate-300 accent-teal-600" /></td>
+                    <td className="px-3 py-2.5 text-center"><input type="checkbox" checked={item.purchased} onChange={() => togglePurchased(item.id)} aria-label={`Mark ${item.name} as in stock`} className="h-4 w-4 rounded border-slate-300 accent-teal-600" /></td>
                     <td className={cn("px-3 py-2.5 font-medium", item.purchased && "line-through")}>{item.category}</td>
                     <td className={cn("px-3 py-2.5", item.purchased && "line-through")}>{item.name}</td>
-                    <td className="px-3 py-2.5 text-right">
-                      <input aria-label={`Quantity for ${item.name}`} type="number" min="0" step="0.5" value={item.quantity} onChange={(event) => updateNumber(item.id, "quantity", event.target.value)} className="w-16 rounded-lg border border-transparent bg-transparent px-1 py-1 text-right tabular-nums outline-none hover:border-slate-200 focus:border-teal-400 dark:hover:border-white/10" />
-                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{item.quantity}</td>
                     <td className="px-3 py-2.5">{item.unit}</td>
-                    <td className="px-3 py-2.5 text-right">
-                      <label className="inline-flex items-center gap-1">
-                        <span className="text-slate-400">$</span>
-                        <input aria-label={`Unit price for ${item.name}`} type="number" min="0" step="0.01" value={item.unitPrice} onChange={(event) => updateNumber(item.id, "unitPrice", event.target.value)} className="w-16 rounded-lg border border-transparent bg-transparent px-1 py-1 text-right tabular-nums outline-none hover:border-slate-200 focus:border-teal-400 dark:hover:border-white/10" />
-                      </label>
-                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{currency.format(item.unitPrice)}</td>
                     <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{currency.format(subtotal)}</td>
-                    <td className="px-3 py-2.5 text-center">
-                      <button onClick={() => setEditingItem(item)} className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-400 dark:text-teal-200 dark:hover:bg-teal-300/10" aria-label={`Manage price and quantity for ${item.name}`} title="Manage price and quantity">
-                        <Pencil className="h-3.5 w-3.5" />
-                        Edit
-                      </button>
-                    </td>
-                    <td className="px-3 py-2.5 text-center">
-                      <button onClick={() => deleteItem(item.id, item.name)} className="rounded-lg p-2 text-rose-600 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-400 dark:text-rose-300 dark:hover:bg-rose-300/10" aria-label={`Delete ${item.name}`} title="Delete item">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
                   </tr>
                 );
               })}
