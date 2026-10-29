@@ -1140,6 +1140,11 @@ function Pantry({
     setItems((current) => current.map((item) => (item.id === id ? { ...item, purchased: !item.purchased } : item)));
   };
 
+  const deleteItem = (id: string, name: string) => {
+    if (!window.confirm(`Delete ${name} from the pantry list?`)) return;
+    setItems((current) => current.filter((item) => item.id !== id));
+  };
+
   const updateNumber = (id: string, field: "quantity" | "unitPrice", value: string) => {
     const numericValue = Number(value);
     if (!Number.isFinite(numericValue) || numericValue < 0) return;
@@ -1280,6 +1285,7 @@ function Pantry({
                 <th className="w-24 px-3 py-3">Unit</th>
                 <th className="w-28 px-3 py-3 text-right">Unit price</th>
                 <th className="w-28 px-3 py-3 text-right">Subtotal</th>
+                <th className="w-20 px-3 py-3 text-center">Delete</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-white/10">
@@ -1303,6 +1309,11 @@ function Pantry({
                       </label>
                     </td>
                     <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{currency.format(subtotal)}</td>
+                    <td className="px-3 py-2.5 text-center">
+                      <button onClick={() => deleteItem(item.id, item.name)} className="rounded-lg p-2 text-rose-600 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-400 dark:text-rose-300 dark:hover:bg-rose-300/10" aria-label={`Delete ${item.name}`} title="Delete item">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
