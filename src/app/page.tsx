@@ -258,7 +258,7 @@ const seedNotifications: Notice[] = [
   { id: "n3", message: "Reward redeemed", detail: "Extra Screen Time was redeemed this week.", read: true, createdAt: isoDay(-3, 17, 30) }
 ];
 
-const seedPantryItems: PantryItem[] = [
+const legacyGrocerySeed: PantryItem[] = [
   { id: "pantry-01", purchased: false, category: "Dals & Pulses", name: "Split Pigeon Peas (Thuvaram Paruppu / துவரம் பருப்பு)", quantity: 2, unit: "kg", unitPrice: 4.5 },
   { id: "pantry-02", purchased: false, category: "Dals & Pulses", name: "Split Yellow Mung Dal (Paasi Paruppu / பாசி பருப்பு)", quantity: 1, unit: "kg", unitPrice: 3.99 },
   { id: "pantry-03", purchased: false, category: "Dals & Pulses", name: "Split Bengal Gram / Chana Dal (Kadalai Paruppu / கடலை பருப்பு)", quantity: 1, unit: "kg", unitPrice: 3.49 },
@@ -320,6 +320,63 @@ const seedPantryItems: PantryItem[] = [
   { id: "pantry-59", purchased: false, category: "Snacks", name: "Biscotti (Biscotti / பிஸ்கோட்டி)", quantity: 1, unit: "pack", unitPrice: 4.49 },
   { id: "pantry-60", purchased: false, category: "Snacks", name: "Pretzels (Pretzels / பிரெட்ஸெல்ஸ்)", quantity: 1, unit: "pack", unitPrice: 3.49 }
 ];
+
+const householdInventorySeed: ReadonlyArray<readonly [boolean, string, string, number, string, number]> = [
+  [false, "Personal care", "Antiperspirant / Deodorant", 2, "stick", 4.99],
+  [false, "Personal care", "Bath soap / Hand soap", 4, "bar", 1.49],
+  [false, "Personal care", "Condoms / Other b.c.", 1, "pack", 9.99],
+  [false, "Personal care", "Cosmetics", 1, "item", 12.5],
+  [true, "Personal care", "Cotton swabs / Balls", 1, "pack", 2.79],
+  [false, "Personal care", "Facial cleanser", 1, "bottle", 6.49],
+  [false, "Personal care", "Facial tissue", 3, "box", 1.99],
+  [false, "Personal care", "Hair gel / Spray", 1, "can", 4.29],
+  [true, "Personal care", "Lip balm", 2, "tube", 2.19],
+  [false, "Personal care", "Moisturizing lotion", 1, "bottle", 7.99],
+  [false, "Personal care", "Mouthwash", 1, "bottle", 5.49],
+  [false, "Personal care", "Razors / Shaving cream", 1, "pack", 8.99],
+  [true, "Personal care", "Shampoo / Conditioner", 2, "bottle", 5.99],
+  [false, "Personal care", "Toilet paper", 1, "pack", 14.99],
+  [false, "Personal care", "Toothpaste", 2, "tube", 3.49],
+  [false, "Cleaning products", "Air freshener", 2, "spray", 3.29],
+  [false, "Cleaning products", "Bathroom cleaner", 1, "bottle", 4.19],
+  [false, "Cleaning products", "Bleach / Detergent", 1, "jug", 11.99],
+  [true, "Cleaning products", "Dish / Dishwasher soap", 2, "bottle", 3.79],
+  [false, "Cleaning products", "Garbage bags", 1, "box", 9.49],
+  [false, "Cleaning products", "Glass cleaner", 1, "bottle", 3.49],
+  [false, "Cleaning products", "Mop head / Vacuum bags", 1, "pack", 7.99],
+  [false, "Cleaning products", "Sponges / Scrubbers", 1, "pack", 3.99],
+  [false, "Kitchen", "Aluminum foil", 1, "roll", 4.49],
+  [false, "Kitchen", "Napkins", 2, "pack", 2.99],
+  [false, "Kitchen", "Non-stick spray", 1, "can", 3.29],
+  [true, "Kitchen", "Paper towels", 1, "pack", 12.99],
+  [false, "Kitchen", "Plastic wrap", 1, "roll", 3.79],
+  [false, "Kitchen", "Sandwich / Freezer bags", 2, "box", 3.99],
+  [false, "Kitchen", "Wax paper", 1, "roll", 2.89],
+  [false, "Office supplies", "CDRs / DVDRs", 1, "pack", 6.99],
+  [false, "Office supplies", "Notepad / Envelopes", 2, "pack", 3.49],
+  [false, "Office supplies", "Glue / Tape", 2, "roll", 2.49],
+  [false, "Office supplies", "Printer paper", 1, "ream", 7.99],
+  [false, "Office supplies", "Pens / Pencils", 1, "pack", 4.99],
+  [false, "Office supplies", "Postage stamps", 1, "book", 13.6],
+  [false, "Other stuff", "Automotive accessories", 1, "item", 8.99],
+  [false, "Other stuff", "Batteries", 2, "pack", 7.49],
+  [false, "Other stuff", "Charcoal / Propane", 1, "bag", 11.99],
+  [false, "Other stuff", "Flowers / Greeting card", 1, "item", 4.99],
+  [false, "Other stuff", "Insect repellent", 1, "can", 5.99],
+  [false, "Other stuff", "Light bulbs", 2, "pack", 6.49],
+  [false, "Other stuff", "Newspaper / Magazine", 1, "issue", 4.5],
+  [false, "Other stuff", "Random impulse buy", 1, "item", 5]
+];
+
+const seedPantryItems: PantryItem[] = householdInventorySeed.map(([purchased, category, name, quantity, unit, unitPrice], index) => ({
+  id: `household-${String(index + 1).padStart(2, "0")}`,
+  purchased,
+  category,
+  name,
+  quantity,
+  unit,
+  unitPrice
+}));
 
 const rewardSheetChildren = [
   { id: "jiya", name: "Jiya", homeTask: "Wash dishes" },
