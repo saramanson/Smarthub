@@ -8,11 +8,11 @@ type AuthMode = "sign-in" | "sign-up" | "forgot-password" | "reset-password";
 const copy = {
   "sign-in": {
     title: "Welcome back",
-    body: "Sign in to manage rewards, points, and the family calendar.",
+    body: "Sign in with an invited family email to manage rewards, points, and the calendar.",
     cta: "Sign in",
-    alt: "Need an account?",
-    href: "/sign-up",
-    altCta: "Create one"
+    alt: "Family access is invitation-only.",
+    href: "/",
+    altCta: "Back to dashboard"
   },
   "sign-up": {
     title: "Create your family space",
@@ -43,7 +43,7 @@ const copy = {
   body: string;
   cta: string;
   alt: string;
-  href: "/sign-in" | "/sign-up";
+  href: "/" | "/sign-in" | "/sign-up";
   altCta: string;
 }>;
 
@@ -89,7 +89,7 @@ export function AuthCard({ mode }: { mode: AuthMode }) {
                 Dashboard
               </Link>
               <span className="ml-auto rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700 dark:bg-teal-400/10 dark:text-teal-200">
-                Supabase Auth ready
+                Secure family access
               </span>
             </div>
             <div className="max-w-md">
