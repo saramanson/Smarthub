@@ -372,15 +372,18 @@ const householdInventorySeed: ReadonlyArray<readonly [boolean, string, string, n
   [false, "Other stuff", "Random impulse buy", 1, "item", 5]
 ];
 
-const seedPantryItems: PantryItem[] = householdInventorySeed.map(([purchased, category, name, quantity, unit, unitPrice], index) => ({
-  id: `household-${String(index + 1).padStart(2, "0")}`,
-  purchased,
-  category,
-  name,
-  quantity,
-  unit,
-  unitPrice
-}));
+const seedPantryItems: PantryItem[] = [
+  ...legacyGrocerySeed,
+  ...householdInventorySeed.map(([purchased, category, name, quantity, unit, unitPrice], index) => ({
+    id: `household-${String(index + 1).padStart(2, "0")}`,
+    purchased,
+    category,
+    name,
+    quantity,
+    unit,
+    unitPrice
+  }))
+];
 
 const rewardSheetChildren = [
   { id: "jiya", name: "Jiya", homeTask: "Wash dishes" },
@@ -1228,7 +1231,10 @@ function Pantry({
         const item = candidate as Record<string, unknown>;
         return typeof item.id === "string" && typeof item.purchased === "boolean" && typeof item.category === "string" && typeof item.name === "string" && typeof item.quantity === "number" && typeof item.unit === "string" && typeof item.unitPrice === "number";
       });
-      if (restored.length) setItems(restored);
+      if (restored.length) {
+        const restoredIds = new Set(restored.map((item) => item.id));
+        setItems([...restored, ...seedPantryItems.filter((item) => !restoredIds.has(item.id))]);
+      }
     } catch {
       window.localStorage.removeItem("smart-home-supplies");
     }
