@@ -2005,24 +2005,18 @@ function Pantry({
         </Panel>
 
         <Panel title="Shopping cart">
-          <div className="space-y-3">
-            {categorySummaries.map((summary, index) => {
-              const percentage = summary.items ? Math.round((summary.shoppingCart / summary.items) * 100) : 0;
-              return (
-                <div key={summary.category} className="flex items-center gap-3">
-                  <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", categoryColors[index % categoryColors.length])} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex justify-between gap-3 text-sm">
-                      <span className="truncate font-medium">{summary.category}</span>
-                      <span className="shrink-0 text-slate-500 dark:text-slate-400">{summary.shoppingCart}/{summary.items}</span>
-                    </div>
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
-                      <div className={cn("h-full rounded-full", categoryColors[index % categoryColors.length])} style={{ width: `${percentage}%` }} />
-                    </div>
-                  </div>
+          <div className="max-h-[510px] space-y-2 overflow-y-auto pr-1">
+            {shoppingCartItems.length ? shoppingCartItems.map((item, index) => (
+              <div key={item.id} className="flex items-center gap-3 rounded-xl border border-amber-100 bg-amber-50/60 px-3 py-2.5 dark:border-amber-300/15 dark:bg-amber-300/5">
+                <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", categoryColors[index % categoryColors.length])} />
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-sm font-medium">{item.name}</p>
+                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{item.quantity} {item.unit} · {currency.format(item.quantity * item.unitPrice)}</p>
                 </div>
-              );
-            })}
+              </div>
+            )) : (
+              <p className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">Mark an item SC in Manage supplies to add it to the shopping cart.</p>
+            )}
           </div>
         </Panel>
       </div>
