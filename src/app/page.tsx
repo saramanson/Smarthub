@@ -831,7 +831,7 @@ const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] =
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "rewards", label: "Rewards", icon: Gift },
   { id: "calendar", label: "Calendar", icon: CalendarDays },
-  { id: "pantry", label: "Pantry", icon: ShoppingBasket },
+  { id: "pantry", label: "Supplies", icon: ShoppingBasket },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "settings", label: "Settings", icon: Settings }
 ];
@@ -1210,7 +1210,7 @@ function Pantry({
   };
 
   const deleteItem = (id: string, name: string) => {
-    if (!window.confirm(`Delete ${name} from the pantry list?`)) return;
+    if (!window.confirm(`Delete ${name} from the supplies list?`)) return;
     setItems((current) => current.filter((item) => item.id !== id));
   };
 
@@ -1248,7 +1248,7 @@ function Pantry({
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">Household list</p>
-          <h2 className="mt-1 text-3xl font-semibold">Pantry</h2>
+          <h2 className="mt-1 text-3xl font-semibold">Supplies</h2>
         </div>
         <button onClick={() => setAddItemOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 dark:bg-teal-300 dark:text-slate-950">
           <Plus className="h-4 w-4" />
@@ -1303,7 +1303,7 @@ function Pantry({
         </Panel>
       </div>
 
-      <Panel title="Pantry overview">
+      <Panel title="Supplies overview">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="border-b border-slate-200 text-xs uppercase tracking-[0.1em] text-slate-500 dark:border-white/10 dark:text-slate-300">
@@ -1334,11 +1334,11 @@ function Pantry({
         </div>
       </Panel>
 
-      <Panel title="Pantry list" action="Add item" onAction={() => setAddItemOpen(true)}>
+      <Panel title="Supplies list" action="Add item" onAction={() => setAddItemOpen(true)}>
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center">
           <label className="relative block min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search pantry" className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search supplies" className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" />
           </label>
           <select value={category} onChange={(event) => setCategory(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">
             <option value="All">All categories</option>
@@ -1405,7 +1405,7 @@ function Pantry({
             </tbody>
           </table>
         </div>
-        {visibleItems.length === 0 && <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">No pantry items match this filter.</p>}
+        {visibleItems.length === 0 && <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">No supply items match this filter.</p>}
       </Panel>
 
       <AnimatePresence>
@@ -1464,10 +1464,10 @@ function PantryItemModal({
       <motion.section role="dialog" aria-modal="true" aria-labelledby="pantry-item-title" initial={{ scale: 0.96, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 12 }} className="relative w-full max-w-lg rounded-[1.5rem] bg-white p-5 shadow-panel dark:bg-slate-950 sm:p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">Pantry</p>
-            <h2 id="pantry-item-title" className="mt-1 text-2xl font-semibold">Add pantry item</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">Supplies</p>
+            <h2 id="pantry-item-title" className="mt-1 text-2xl font-semibold">Add supply item</h2>
           </div>
-          <button className="rounded-full p-2 hover:bg-slate-100 dark:hover:bg-white/10" onClick={onClose} aria-label="Close add pantry item">
+          <button className="rounded-full p-2 hover:bg-slate-100 dark:hover:bg-white/10" onClick={onClose} aria-label="Close add supply item">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -1522,7 +1522,7 @@ function PantryManageItemModal({
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">Manage item</p>
             <h2 id="manage-pantry-item-title" className="mt-1 text-2xl font-semibold">Price & quantity</h2>
           </div>
-          <button className="rounded-full p-2 hover:bg-slate-100 dark:hover:bg-white/10" onClick={onClose} aria-label="Close pantry item manager">
+          <button className="rounded-full p-2 hover:bg-slate-100 dark:hover:bg-white/10" onClick={onClose} aria-label="Close supply item manager">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -1548,7 +1548,7 @@ function PantryManageItemModal({
               <input name="manage-unit-price" type="number" min="0" step="0.01" defaultValue={item.unitPrice} className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-8 pr-4 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" />
             </div>
           </label>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Saving recalculates this item’s subtotal and every Pantry total automatically.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Saving recalculates this item’s subtotal and all Supplies totals automatically.</p>
           <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white dark:bg-teal-300 dark:text-slate-950">
             <Check className="h-4 w-4" />
             Save changes
