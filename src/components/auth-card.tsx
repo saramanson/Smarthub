@@ -96,6 +96,16 @@ export function AuthCard({ mode }: { mode: AuthMode }) {
               <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">{item.title}</h2>
               <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">{item.body}</p>
 
+              {mode === "sign-in" ? (
+                <div className="mt-8 space-y-4">
+                  <div className="rounded-2xl border border-teal-100 bg-teal-50 p-4 text-sm leading-6 text-teal-950 dark:border-teal-300/20 dark:bg-teal-300/10 dark:text-teal-100">
+                    SMART - HOME uses the secure account already approved for this family site. Continue with ChatGPT using the invited email address.
+                  </div>
+                  <a href="/signin-with-chatgpt?return_to=%2F" target="_top" className="flex w-full items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-glow transition hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-teal-300 dark:text-slate-950 dark:hover:bg-teal-200">
+                    Continue with ChatGPT
+                  </a>
+                </div>
+              ) : (
               <form className="mt-8 space-y-4">
                 {mode === "sign-up" && (
                   <label className="block">
@@ -124,26 +134,16 @@ export function AuthCard({ mode }: { mode: AuthMode }) {
                     </div>
                   </label>
                 )}
-                {mode === "sign-in" && (
-                  <div className="flex items-center justify-between text-sm">
-                    <label className="inline-flex items-center gap-2 text-slate-500 dark:text-slate-400">
-                      <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-teal-600" />
-                      Remember me
-                    </label>
-                    <Link href="/forgot-password" className="font-medium text-teal-700 dark:text-teal-200">
-                      Forgot password?
-                    </Link>
-                  </div>
-                )}
                 <button className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-glow transition hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-teal-300 dark:text-slate-950 dark:hover:bg-teal-200">
                   {item.cta}
                 </button>
-                {(mode === "sign-in" || mode === "sign-up") && (
+                {mode === "sign-up" && (
                   <button type="button" className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10">
                     Continue with Google
                   </button>
                 )}
               </form>
+              )}
 
               <p className="mt-8 text-sm text-slate-500 dark:text-slate-400">
                 {item.alt}{" "}

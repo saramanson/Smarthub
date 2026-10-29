@@ -863,9 +863,9 @@ function App() {
             </div>
             <div className="flex items-center gap-2">
               <PwaInstallButton />
-              <Link href="/sign-in" className="hidden rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white sm:inline-flex">
+              <a href="/signin-with-chatgpt?return_to=%2F" target="_top" className="hidden rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white sm:inline-flex">
                 Sign in
-              </Link>
+              </a>
               <button
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:-translate-y-0.5 dark:border-white/10 dark:bg-white/10 dark:text-white"
