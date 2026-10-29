@@ -136,6 +136,11 @@ type BillAttachment = {
   addedAt: string;
 };
 
+type DeferredInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+};
+
 const expenseBillDatabaseName = "smart-home-expense-bills";
 const expenseBillStoreName = "bills";
 const maxBillFileSize = 25 * 1024 * 1024;
@@ -622,6 +627,11 @@ function App() {
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
 
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+  }, []);
+
   const startSidebarResize = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     const startX = event.clientX;
@@ -852,6 +862,7 @@ function App() {
               <h1 className="truncate text-lg font-semibold sm:text-2xl">Welcome back, Ganesh Family</h1>
             </div>
             <div className="flex items-center gap-2">
+              <PwaInstallButton />
               <Link href="/sign-in" className="hidden rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white sm:inline-flex">
                 Sign in
               </Link>
@@ -1024,6 +1035,70 @@ export default function Page() {
     <QueryClientProvider client={queryClient}>
       <App />
     </QueryClientProvider>
+  );
+}
+
+function PwaInstallButton() {
+  const [installPrompt, setInstallPrompt] = useState<DeferredInstallPromptEvent | null>(null);
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [isAppleDevice, setIsAppleDevice] = useState(false);
+
+  useEffect(() => {
+    const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean };
+    const standalone = window.matchMedia("(display-mode: standalone)").matches || navigatorWithStandalone.standalone === true;
+    setIsInstalled(standalone);
+    setIsAppleDevice(/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+
+    const onBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as DeferredInstallPromptEvent);
+    };
+    const onInstalled = () => {
+      setInstallPrompt(null);
+      setShowInstructions(false);
+      setIsInstalled(true);
+    };
+    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+
+  const requestInstallation = async () => {
+    if (!installPrompt) {
+      setShowInstructions(true);
+      return;
+    }
+    await installPrompt.prompt();
+    const result = await installPrompt.userChoice;
+    setInstallPrompt(null);
+    if (result.outcome === "accepted") setIsInstalled(true);
+  };
+
+  if (isInstalled) return null;
+
+  return (
+    <>
+      <button onClick={() => void requestInstallation()} className="inline-flex h-10 items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 text-sm font-semibold text-teal-800 transition hover:-translate-y-0.5 hover:bg-teal-100 dark:border-teal-300/30 dark:bg-teal-300/10 dark:text-teal-100" aria-label="Install SMART - HOME as an app">
+        <Download className="h-4 w-4" />
+        <span className="hidden sm:inline">Install app</span>
+      </button>
+      <AnimatePresence>
+        {showInstructions && (
+          <motion.div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="absolute inset-0" onClick={() => setShowInstructions(false)} />
+            <motion.section role="dialog" aria-modal="true" aria-labelledby="install-smart-home" initial={{ scale: 0.96, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 12 }} className="relative w-full max-w-md rounded-[1.5rem] bg-white p-6 shadow-panel dark:bg-slate-950">
+              <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">SMART - HOME</p><h2 id="install-smart-home" className="mt-1 text-2xl font-semibold">Add the app icon</h2></div><button onClick={() => setShowInstructions(false)} className="rounded-full p-2 hover:bg-slate-100 dark:hover:bg-white/10" aria-label="Close install instructions"><X className="h-5 w-5" /></button></div>
+              {isAppleDevice ? <p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">In Safari, tap the Share button, then choose <strong>Add to Home Screen</strong>. SMART - HOME will appear as an icon and open like an app.</p> : <p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">Use your browser menu and choose <strong>Install SMART - HOME</strong> or <strong>Add to Home screen</strong>. If you do not see it yet, refresh once after the page has finished loading.</p>}
+              <div className="mt-5 rounded-2xl bg-teal-50 p-4 text-sm text-teal-900 dark:bg-teal-300/10 dark:text-teal-100"><strong>Tip:</strong> Installing keeps SMART - HOME one tap away on desktop, Android, iPhone, or iPad.</div>
+            </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
