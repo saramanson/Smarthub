@@ -1764,7 +1764,7 @@ function Pantry({
 }) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
-  const [pendingOnly, setPendingOnly] = useState(false);
+  const [cartOnly, setCartOnly] = useState(false);
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
   const [selectedSupplyIds, setSelectedSupplyIds] = useState<string[]>([]);
@@ -1780,9 +1780,9 @@ function Pantry({
     return items.filter((item) => {
       const matchesSearch = !searchTerm || `${item.name} ${item.category}`.toLowerCase().includes(searchTerm);
       const matchesCategory = category === "All" || item.category === category;
-      return matchesSearch && matchesCategory && (!pendingOnly || !item.purchased);
+      return matchesSearch && matchesCategory && (!cartOnly || item.purchased);
     });
-  }, [category, items, pendingOnly, search]);
+  }, [cartOnly, category, items, search]);
   const categorySummaries = useMemo(
     () =>
       categories.map((categoryName) => {
@@ -1790,16 +1790,16 @@ function Pantry({
         return {
           category: categoryName,
           items: categoryItems.length,
-          purchased: categoryItems.filter((item) => item.purchased).length,
+          shoppingCart: categoryItems.filter((item) => item.purchased).length,
           spend: categoryItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
         };
       }),
     [categories, items]
   );
   const totalSpend = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-  const purchasedItems = items.filter((item) => item.purchased);
-  const purchasedSpend = purchasedItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-  const pendingItems = items.length - purchasedItems.length;
+  const shoppingCartItems = items.filter((item) => item.purchased);
+  const shoppingCartSpend = shoppingCartItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const notInShoppingCartItems = items.length - shoppingCartItems.length;
   const highestCategorySpend = Math.max(...categorySummaries.map((summary) => summary.spend), 1);
   const categoryColors = ["bg-teal-500", "bg-sky-500", "bg-rose-500", "bg-amber-500", "bg-emerald-500", "bg-violet-500", "bg-cyan-500", "bg-lime-500", "bg-pink-500"];
 
@@ -1825,7 +1825,7 @@ function Pantry({
     }
   }, [setItems]);
 
-  const togglePurchased = (id: string) => {
+  const toggleShoppingCart = (id: string) => {
     setItems((current) => current.map((item) => (item.id === id ? { ...item, purchased: !item.purchased } : item)));
     setIsDirty(true);
   };
@@ -1910,7 +1910,7 @@ function Pantry({
 
   const downloadSuppliesExcel = () => {
     const rows = items.map((item) => ({
-      Status: item.purchased ? "In stock" : "Restock needed",
+      SC: item.purchased ? "SC" : "",
       Category: item.category,
       "Item Description": item.name,
       Quantity: item.quantity,
@@ -1942,11 +1942,11 @@ function Pantry({
         const categoryName = String(readCell(row, ["Category"]) || "").trim();
         const quantity = numberFromCell(readCell(row, ["Quantity"]));
         const unitPrice = numberFromCell(readCell(row, ["Unit Price", "Price"]));
-        const status = readCell(row, ["Status", "Purchased", "In stock"]);
+        const status = readCell(row, ["SC", "Status", "Purchased", "In stock"]);
         const statusText = String(status).trim().toLowerCase();
         return {
           id: `upload-${crypto.randomUUID()}-${index}`,
-          purchased: status === true || ["true", "yes", "checked", "purchased", "in stock"].includes(statusText),
+          purchased: status === true || ["true", "yes", "checked", "sc", "shopping cart", "purchased", "in stock"].includes(statusText),
           category: categoryName,
           name,
           quantity,
@@ -1982,9 +1982,9 @@ function Pantry({
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <PantryMetric label="Total items" value={items.length.toLocaleString()} detail="Staples on list" icon={ListChecks} tone="bg-teal-100 text-teal-700 dark:bg-teal-300/15 dark:text-teal-200" />
-        <PantryMetric label="Items purchased" value={purchasedItems.length.toLocaleString()} detail={`${items.length ? Math.round((purchasedItems.length / items.length) * 100) : 0}% completed`} icon={CircleCheckBig} tone="bg-emerald-100 text-emerald-700 dark:bg-emerald-300/15 dark:text-emerald-200" />
-        <PantryMetric label="Items pending" value={pendingItems.toLocaleString()} detail="Still to buy" icon={ShoppingBasket} tone="bg-amber-100 text-amber-700 dark:bg-amber-300/15 dark:text-amber-200" />
-        <PantryMetric label="Estimated spend" value={currency.format(totalSpend)} detail={`Cart total: ${currency.format(purchasedSpend)}`} icon={CircleDollarSign} tone="bg-rose-100 text-rose-700 dark:bg-rose-300/15 dark:text-rose-200" />
+        <PantryMetric label="SC items" value={shoppingCartItems.length.toLocaleString()} detail={`${items.length ? Math.round((shoppingCartItems.length / items.length) * 100) : 0}% added for purchase`} icon={CircleCheckBig} tone="bg-emerald-100 text-emerald-700 dark:bg-emerald-300/15 dark:text-emerald-200" />
+        <PantryMetric label="Not in SC" value={notInShoppingCartItems.toLocaleString()} detail="Not yet in shopping cart" icon={ShoppingBasket} tone="bg-amber-100 text-amber-700 dark:bg-amber-300/15 dark:text-amber-200" />
+        <PantryMetric label="Estimated spend" value={currency.format(totalSpend)} detail={`Shopping cart: ${currency.format(shoppingCartSpend)}`} icon={CircleDollarSign} tone="bg-rose-100 text-rose-700 dark:bg-rose-300/15 dark:text-rose-200" />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
@@ -2004,17 +2004,17 @@ function Pantry({
           </div>
         </Panel>
 
-        <Panel title="Purchase progress">
+        <Panel title="Shopping cart">
           <div className="space-y-3">
             {categorySummaries.map((summary, index) => {
-              const percentage = summary.items ? Math.round((summary.purchased / summary.items) * 100) : 0;
+              const percentage = summary.items ? Math.round((summary.shoppingCart / summary.items) * 100) : 0;
               return (
                 <div key={summary.category} className="flex items-center gap-3">
                   <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", categoryColors[index % categoryColors.length])} />
                   <div className="min-w-0 flex-1">
                     <div className="flex justify-between gap-3 text-sm">
                       <span className="truncate font-medium">{summary.category}</span>
-                      <span className="shrink-0 text-slate-500 dark:text-slate-400">{summary.purchased}/{summary.items}</span>
+                      <span className="shrink-0 text-slate-500 dark:text-slate-400">{summary.shoppingCart}/{summary.items}</span>
                     </div>
                     <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
                       <div className={cn("h-full rounded-full", categoryColors[index % categoryColors.length])} style={{ width: `${percentage}%` }} />
@@ -2034,7 +2034,7 @@ function Pantry({
               <tr>
                 <th className="pb-3 font-semibold">Category</th>
                 <th className="pb-3 text-right font-semibold">Items</th>
-                <th className="pb-3 text-right font-semibold">Purchased</th>
+                <th className="pb-3 text-right font-semibold">In SC</th>
                 <th className="pb-3 text-right font-semibold">Est. spend</th>
               </tr>
             </thead>
@@ -2043,14 +2043,14 @@ function Pantry({
                 <tr key={summary.category}>
                   <td className="py-3 font-medium">{summary.category}</td>
                   <td className="py-3 text-right tabular-nums">{summary.items}</td>
-                  <td className="py-3 text-right tabular-nums">{summary.purchased}</td>
+                  <td className="py-3 text-right tabular-nums">{summary.shoppingCart}</td>
                   <td className="py-3 text-right font-semibold tabular-nums">{currency.format(summary.spend)}</td>
                 </tr>
               ))}
               <tr className="border-t-2 border-slate-300 font-semibold dark:border-white/20">
                 <td className="pt-3">Total</td>
                 <td className="pt-3 text-right tabular-nums">{items.length}</td>
-                <td className="pt-3 text-right tabular-nums">{purchasedItems.length}</td>
+                <td className="pt-3 text-right tabular-nums">{shoppingCartItems.length}</td>
                 <td className="pt-3 text-right tabular-nums">{currency.format(totalSpend)}</td>
               </tr>
             </tbody>
@@ -2114,9 +2114,9 @@ function Pantry({
                       <option key={categoryName} value={categoryName}>{categoryName}</option>
                     ))}
                   </select>
-                  <button onClick={() => setPendingOnly((current) => !current)} className={cn("inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold transition", pendingOnly ? "border-teal-600 bg-teal-600 text-white dark:border-teal-300 dark:bg-teal-300 dark:text-slate-950" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10")}>
+                  <button onClick={() => setCartOnly((current) => !current)} className={cn("inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold transition", cartOnly ? "border-teal-600 bg-teal-600 text-white dark:border-teal-300 dark:bg-teal-300 dark:text-slate-950" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10")}>
                     <Filter className="h-4 w-4" />
-                    Restock needed
+                    SC items only
                   </button>
                 </div>
               </motion.div>
@@ -2130,7 +2130,7 @@ function Pantry({
             <thead className="sticky top-0 z-10 bg-amber-800 text-xs uppercase tracking-[0.08em] text-white">
               <tr>
                 <th className="w-14 px-3 py-3 text-center"><input type="checkbox" checked={visibleItems.length > 0 && visibleItems.every((item) => selectedSupplyIds.includes(item.id))} onChange={toggleSelectAllVisible} aria-label="Select all visible supply items" className="h-4 w-4 rounded border-slate-300 accent-teal-600" /></th>
-                <th className="w-16 px-3 py-3 text-center">Status</th>
+                <th className="w-20 px-3 py-3 text-center">SC</th>
                 <th className="min-w-40 px-3 py-3">Category</th>
                 <th className="min-w-[300px] px-3 py-3">Item description</th>
                 <th className="w-24 px-3 py-3 text-right">Quantity</th>
@@ -2144,11 +2144,11 @@ function Pantry({
                 const subtotal = item.quantity * item.unitPrice;
                 const selected = selectedSupplyIds.includes(item.id);
                 return (
-                  <tr key={item.id} className={cn("transition-colors hover:bg-teal-50/70 dark:hover:bg-teal-300/5", selected && "bg-teal-50/80 dark:bg-teal-300/10", item.purchased && "text-slate-400 dark:text-slate-500")}>
+                  <tr key={item.id} className={cn("transition-colors hover:bg-teal-50/70 dark:hover:bg-teal-300/5", selected && "bg-teal-50/80 dark:bg-teal-300/10", item.purchased && "bg-amber-50/70 dark:bg-amber-300/5")}>
                     <td className="px-3 py-2.5 text-center"><input type="checkbox" checked={selected} onChange={() => toggleSelected(item.id)} aria-label={`Select ${item.name}`} className="h-4 w-4 rounded border-slate-300 accent-teal-600" /></td>
-                    <td className="px-3 py-2.5 text-center"><input type="checkbox" checked={item.purchased} onChange={() => togglePurchased(item.id)} aria-label={`Mark ${item.name} as in stock`} className="h-4 w-4 rounded border-slate-300 accent-teal-600" /></td>
-                    <td className={cn("px-3 py-2.5 font-medium", item.purchased && "line-through")}>{item.category}</td>
-                    <td className={cn("px-3 py-2.5", item.purchased && "line-through")}>{item.name}</td>
+                    <td className="px-3 py-2.5 text-center"><button type="button" onClick={() => toggleShoppingCart(item.id)} aria-pressed={item.purchased} aria-label={`${item.purchased ? "Remove" : "Add"} ${item.name} ${item.purchased ? "from" : "to"} shopping cart`} className={cn("min-w-10 rounded-lg px-2 py-1 text-xs font-bold transition", item.purchased ? "bg-amber-500 text-white hover:bg-amber-600" : "border border-slate-200 bg-white text-slate-400 hover:border-amber-400 hover:text-amber-700 dark:border-white/15 dark:bg-white/5 dark:text-slate-400")}>{item.purchased ? "SC" : "—"}</button></td>
+                    <td className="px-3 py-2.5 font-medium">{item.category}</td>
+                    <td className="px-3 py-2.5">{item.name}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums">{item.quantity}</td>
                     <td className="px-3 py-2.5">{item.unit}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums">{currency.format(item.unitPrice)}</td>
