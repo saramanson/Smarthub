@@ -5,6 +5,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import * as XLSX from "xlsx";
 import {
   Award,
@@ -38,6 +39,7 @@ import {
   Star,
   Sun,
   Trash2,
+  TrendingUp,
   Trophy,
   Upload,
   Users,
@@ -112,7 +114,15 @@ type PantryItem = {
   unitPrice: number;
 };
 
-type Section = "dashboard" | "rewards" | "calendar" | "pantry" | "notifications" | "settings";
+type Expense = {
+  id: string;
+  date: string;
+  description: string;
+  category: string;
+  amount: number;
+};
+
+type Section = "dashboard" | "rewards" | "calendar" | "pantry" | "expense" | "notifications" | "settings";
 type CalendarView = "month" | "week" | "day" | "agenda";
 type RewardSheetChild = "jiya" | "lakhan";
 
@@ -372,6 +382,24 @@ const householdInventorySeed: ReadonlyArray<readonly [boolean, string, string, n
   [false, "Other stuff", "Random impulse buy", 1, "item", 5]
 ];
 
+const expenseCategories = [
+  "Grocery",
+  "Gas",
+  "Clothing",
+  "Medicine",
+  "Services",
+  "internet",
+  "water bill",
+  "Electricity",
+  "Petrol",
+  "Insurance",
+  "Tax",
+  "Sports",
+  "Chess",
+  "Electronics",
+  "others"
+];
+
 const seedPantryItems: PantryItem[] = [
   ...legacyGrocerySeed,
   ...householdInventorySeed.map(([purchased, category, name, quantity, unit, unitPrice], index) => ({
@@ -409,6 +437,7 @@ function App() {
   const [transactions, setTransactions] = useState(seedTransactions);
   const [notifications, setNotifications] = useState(seedNotifications);
   const [pantryItems, setPantryItems] = useState(seedPantryItems);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [calendarView, setCalendarView] = useState<CalendarView>("month");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -597,7 +626,7 @@ function App() {
                     Create rewards
                   </button>
                 )}
-                {item.id === "pantry" && (
+                {item.id === "expense" && (
                   <div className="mt-2 space-y-2">
                     {sidebarWebGroups.map((group) => (
                       <div key={group.label}>
@@ -748,6 +777,7 @@ function App() {
                 />
               )}
               {activeSection === "pantry" && <Pantry items={pantryItems} setItems={setPantryItems} />}
+              {activeSection === "expense" && <ExpenseTracker items={expenses} setItems={setExpenses} />}
               {activeSection === "notifications" && (
                 <Notifications notifications={notifications} setNotifications={setNotifications} />
               )}
@@ -839,6 +869,7 @@ const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] =
   { id: "rewards", label: "Rewards", icon: Gift },
   { id: "calendar", label: "Calendar", icon: CalendarDays },
   { id: "pantry", label: "Supplies", icon: ShoppingBasket },
+  { id: "expense", label: "Expense", icon: WalletCards },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "settings", label: "Settings", icon: Settings }
 ];
@@ -1167,6 +1198,301 @@ function Rewards({
         </Panel>
       </section>
     </div>
+  );
+}
+
+function ExpenseTracker({
+  items,
+  setItems
+}: {
+  items: Expense[];
+  setItems: React.Dispatch<React.SetStateAction<Expense[]>>;
+}) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("All");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [notice, setNotice] = useState("");
+  const [storageReady, setStorageReady] = useState(false);
+  const todayString = new Date().toISOString().slice(0, 10);
+  const currency = useMemo(() => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }), []);
+  const chartColors = ["#0f766e", "#0ea5e9", "#8b5cf6", "#f59e0b", "#ec4899", "#10b981", "#f97316", "#6366f1", "#14b8a6", "#ef4444", "#a855f7", "#84cc16", "#06b6d4", "#64748b", "#f43f5e"];
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("smart-home-expenses");
+      if (saved) {
+        const parsed: unknown = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const restored = parsed.filter((candidate): candidate is Expense => {
+            if (!candidate || typeof candidate !== "object") return false;
+            const expense = candidate as Record<string, unknown>;
+            return typeof expense.id === "string" && typeof expense.date === "string" && typeof expense.description === "string" && typeof expense.category === "string" && typeof expense.amount === "number";
+          });
+          if (restored.length) setItems(restored);
+        }
+      }
+    } catch {
+      window.localStorage.removeItem("smart-home-expenses");
+    } finally {
+      setStorageReady(true);
+    }
+  }, [setItems]);
+
+  useEffect(() => {
+    if (storageReady) window.localStorage.setItem("smart-home-expenses", JSON.stringify(items));
+  }, [items, storageReady]);
+
+  const visibleItems = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return items
+      .filter((item) => (!term || `${item.description} ${item.category}`.toLowerCase().includes(term)) && (category === "All" || item.category === category))
+      .sort((left, right) => right.date.localeCompare(left.date));
+  }, [category, items, search]);
+
+  const weeklySpend = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat("en-US", { weekday: "short" });
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() - (6 - index));
+      const key = date.toISOString().slice(0, 10);
+      return { label: formatter.format(date), amount: items.filter((item) => item.date === key).reduce((sum, item) => sum + item.amount, 0) };
+    });
+  }, [items]);
+
+  const monthlySpend = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat("en-US", { month: "short" });
+    const now = new Date();
+    return Array.from({ length: 6 }, (_, index) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      return { label: formatter.format(date), amount: items.filter((item) => item.date.startsWith(key)).reduce((sum, item) => sum + item.amount, 0) };
+    });
+  }, [items]);
+
+  const categorySpend = useMemo(
+    () => expenseCategories.map((categoryName) => ({ name: categoryName, amount: items.filter((item) => item.category === categoryName).reduce((sum, item) => sum + item.amount, 0) })).filter((item) => item.amount > 0),
+    [items]
+  );
+  const totalSpend = items.reduce((sum, item) => sum + item.amount, 0);
+  const weekSpend = weeklySpend.reduce((sum, item) => sum + item.amount, 0);
+  const monthSpend = monthlySpend.at(-1)?.amount ?? 0;
+
+  const openCreate = () => {
+    setEditingExpense(null);
+    setEditorOpen(true);
+  };
+
+  const saveExpense = (formData: FormData) => {
+    const description = String(formData.get("expense-description") || "").trim();
+    const amount = Number(formData.get("expense-amount") || 0);
+    const date = String(formData.get("expense-date") || todayString);
+    const expenseCategory = String(formData.get("expense-category") || "others");
+    if (!description || !Number.isFinite(amount) || amount <= 0) return;
+    if (editingExpense) {
+      setItems((current) => current.map((item) => (item.id === editingExpense.id ? { ...item, date, description, category: expenseCategory, amount } : item)));
+      setNotice("Expense updated and saved on this device.");
+    } else {
+      setItems((current) => [{ id: crypto.randomUUID(), date, description, category: expenseCategory, amount }, ...current]);
+      setNotice("Expense added and saved on this device.");
+    }
+    setEditorOpen(false);
+    setEditingExpense(null);
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((current) => (current.includes(id) ? current.filter((selectedId) => selectedId !== id) : [...current, id]));
+  };
+
+  const toggleSelectAll = () => {
+    const visibleIds = visibleItems.map((item) => item.id);
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
+    setSelectedIds((current) => (allSelected ? current.filter((id) => !visibleIds.includes(id)) : Array.from(new Set([...current, ...visibleIds]))));
+  };
+
+  const copySelected = () => {
+    if (selectedIds.length !== 1) {
+      setNotice("Select one expense to copy.");
+      return;
+    }
+    const original = items.find((item) => item.id === selectedIds[0]);
+    if (!original) return;
+    const copy = { ...original, id: crypto.randomUUID(), description: `${original.description} (copy)` };
+    setItems((current) => [copy, ...current]);
+    setSelectedIds([copy.id]);
+    setNotice("Expense copied and saved on this device.");
+  };
+
+  const deleteSelected = () => {
+    if (!selectedIds.length) {
+      setNotice("Select one or more expenses to delete.");
+      return;
+    }
+    if (!window.confirm(`Delete ${selectedIds.length} selected expense${selectedIds.length === 1 ? "" : "s"}?`)) return;
+    setItems((current) => current.filter((item) => !selectedIds.includes(item.id)));
+    setSelectedIds([]);
+    setNotice("Selected expenses deleted from this device.");
+  };
+
+  const editSelected = () => {
+    if (selectedIds.length !== 1) {
+      setNotice("Select one expense to edit.");
+      return;
+    }
+    const selected = items.find((item) => item.id === selectedIds[0]);
+    if (selected) {
+      setEditingExpense(selected);
+      setEditorOpen(true);
+    }
+  };
+
+  const downloadExpenses = () => {
+    const rows = items.map((item) => ({ Date: item.date, Description: item.description, Category: item.category, Type: "Debit (Expense)", "Amount ($)": item.amount }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet["!cols"] = [{ wch: 14 }, { wch: 34 }, { wch: 18 }, { wch: 18 }, { wch: 14 }];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Expenses");
+    XLSX.writeFile(workbook, "expenses.xlsx", { compression: true });
+    setNotice("Expenses downloaded to Excel.");
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">Household finances</p>
+        <h2 className="mt-1 text-3xl font-semibold">Expense</h2>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <PantryMetric label="Total spend" value={currency.format(totalSpend)} detail="All saved expenses" icon={WalletCards} tone="bg-rose-100 text-rose-700 dark:bg-rose-300/15 dark:text-rose-200" />
+        <PantryMetric label="This week" value={currency.format(weekSpend)} detail="Last 7 days" icon={TrendingUp} tone="bg-amber-100 text-amber-700 dark:bg-amber-300/15 dark:text-amber-200" />
+        <PantryMetric label="This month" value={currency.format(monthSpend)} detail="Current calendar month" icon={CalendarDays} tone="bg-sky-100 text-sky-700 dark:bg-sky-300/15 dark:text-sky-200" />
+        <PantryMetric label="Transactions" value={items.length.toLocaleString()} detail="Saved on this device" icon={ListChecks} tone="bg-teal-100 text-teal-700 dark:bg-teal-300/15 dark:text-teal-200" />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Panel title="Weekly spend">
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={weeklySpend} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#cbd5e1" />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} tickFormatter={(value) => `$${value}`} />
+                <Tooltip formatter={(value) => currency.format(Number(value))} cursor={{ fill: "rgba(20,184,166,0.08)" }} />
+                <Bar dataKey="amount" fill="#0f766e" radius={[7, 7, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
+
+        <Panel title="Monthly spend">
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={monthlySpend} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#cbd5e1" />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} tickFormatter={(value) => `$${value}`} />
+                <Tooltip formatter={(value) => currency.format(Number(value))} />
+                <Area type="monotone" dataKey="amount" stroke="#2563eb" fill="#bfdbfe" strokeWidth={3} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
+
+        <div className="xl:col-span-2">
+        <Panel title="Spend by category">
+          {categorySpend.length ? (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={categorySpend} dataKey="amount" nameKey="name" innerRadius={62} outerRadius={100} paddingAngle={3}>
+                    {categorySpend.map((entry, index) => <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(value) => currency.format(Number(value))} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: "12px" }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex h-72 flex-col items-center justify-center text-center">
+              <TrendingUp className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+              <p className="mt-3 font-semibold">No spending recorded yet</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Add an expense to see its category share.</p>
+            </div>
+          )}
+        </Panel>
+        </div>
+      </div>
+
+      <Panel title="Manage transactions">
+        <div className="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5">
+          <div className="flex flex-col justify-between gap-3 p-3 xl:flex-row xl:items-center">
+            <div className="flex flex-wrap gap-2">
+              <button onClick={openCreate} className="inline-flex items-center gap-2 rounded-xl bg-amber-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-800"><Plus className="h-4 w-4" />Create expense</button>
+              <button onClick={() => setFiltersOpen((current) => !current)} className={cn("inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition", filtersOpen ? "border-teal-600 bg-teal-600 text-white dark:border-teal-300 dark:bg-teal-300 dark:text-slate-950" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10")}><Filter className="h-4 w-4" />Filter</button>
+              <button onClick={downloadExpenses} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"><Download className="h-4 w-4" />Download Excel</button>
+            </div>
+            <div className="flex flex-wrap gap-2 xl:justify-end">
+              <button onClick={copySelected} disabled={selectedIds.length !== 1} className={cn("inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition", selectedIds.length === 1 ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10" : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-slate-600")}><Copy className="h-4 w-4" />Copy</button>
+              <button onClick={deleteSelected} disabled={!selectedIds.length} className={cn("inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition", selectedIds.length ? "border-rose-300 bg-white text-rose-700 hover:bg-rose-50 dark:border-rose-300/30 dark:bg-white/5 dark:text-rose-200 dark:hover:bg-rose-300/10" : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-slate-600")}><Trash2 className="h-4 w-4" />Delete</button>
+              <button onClick={editSelected} disabled={selectedIds.length !== 1} className={cn("inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition", selectedIds.length === 1 ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10" : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-slate-600")}><Pencil className="h-4 w-4" />Edit</button>
+              <button onClick={() => { window.localStorage.setItem("smart-home-expenses", JSON.stringify(items)); setNotice("Expenses saved on this device."); }} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-600"><Save className="h-4 w-4" />Save</button>
+            </div>
+          </div>
+          {notice && <p className="border-t border-slate-200 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-slate-300">{notice}</p>}
+          <AnimatePresence initial={false}>
+            {filtersOpen && <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden border-t border-slate-200 dark:border-white/10"><div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center"><label className="relative block min-w-0 flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search expenses" className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" /></label><select value={category} onChange={(event) => setCategory(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5"><option value="All">All categories</option>{expenseCategories.map((categoryName) => <option key={categoryName} value={categoryName}>{categoryName}</option>)}</select></div></motion.div>}
+          </AnimatePresence>
+        </div>
+
+        <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">Showing {visibleItems.length} of {items.length} expenses{selectedIds.length ? ` · ${selectedIds.length} selected` : ""}</p>
+        <div className="max-h-[560px] overflow-auto rounded-xl border border-slate-200 dark:border-white/10">
+          <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+            <thead className="sticky top-0 z-10 bg-emerald-100 text-xs uppercase tracking-[0.08em] text-emerald-950 dark:bg-emerald-300 dark:text-slate-950"><tr><th className="w-14 px-3 py-3 text-center"><input type="checkbox" checked={visibleItems.length > 0 && visibleItems.every((item) => selectedIds.includes(item.id))} onChange={toggleSelectAll} aria-label="Select all visible expenses" className="h-4 w-4 rounded border-slate-300 accent-teal-600" /></th><th className="w-32 px-3 py-3">Date</th><th className="min-w-[300px] px-3 py-3">Description</th><th className="w-44 px-3 py-3">Category</th><th className="w-32 px-3 py-3 text-right">Amount ($)</th></tr></thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-white/10">{visibleItems.map((item) => <tr key={item.id} className={cn("transition-colors hover:bg-teal-50/70 dark:hover:bg-teal-300/5", selectedIds.includes(item.id) && "bg-teal-50/80 dark:bg-teal-300/10")}><td className="px-3 py-3 text-center"><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelected(item.id)} aria-label={`Select ${item.description}`} className="h-4 w-4 rounded border-slate-300 accent-teal-600" /></td><td className="px-3 py-3 tabular-nums">{item.date}</td><td className="px-3 py-3 font-medium">{item.description}</td><td className="px-3 py-3">{item.category}</td><td className="px-3 py-3 text-right font-semibold tabular-nums">{currency.format(item.amount)}</td></tr>)}</tbody>
+          </table>
+        </div>
+        {visibleItems.length === 0 && <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">No expenses found. Create an expense to begin tracking your spend.</p>}
+      </Panel>
+
+      <AnimatePresence>{editorOpen && <ExpenseEditorModal expense={editingExpense} today={todayString} onClose={() => { setEditorOpen(false); setEditingExpense(null); }} onSave={saveExpense} />}</AnimatePresence>
+    </div>
+  );
+}
+
+function ExpenseEditorModal({
+  expense,
+  today: todayValue,
+  onClose,
+  onSave
+}: {
+  expense: Expense | null;
+  today: string;
+  onClose: () => void;
+  onSave: (formData: FormData) => void;
+}) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <div className="absolute inset-0" onClick={onClose} />
+      <motion.section role="dialog" aria-modal="true" aria-labelledby="expense-editor-title" initial={{ scale: 0.96, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 12 }} className="relative w-full max-w-lg rounded-[1.5rem] bg-white p-5 shadow-panel dark:bg-slate-950 sm:p-6">
+        <div className="mb-5 flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">Expense</p><h2 id="expense-editor-title" className="mt-1 text-2xl font-semibold">{expense ? "Edit expense" : "Add expense"}</h2></div><button className="rounded-full p-2 hover:bg-slate-100 dark:hover:bg-white/10" onClick={onClose} aria-label="Close expense editor"><X className="h-5 w-5" /></button></div>
+        <form action={onSave} className="space-y-3">
+          <label className="block text-sm font-medium">Date<input name="expense-date" type="date" defaultValue={expense?.date ?? todayValue} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" /></label>
+          <label className="block text-sm font-medium">Description<input name="expense-description" required defaultValue={expense?.description ?? ""} placeholder="Enter description" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" /></label>
+          <div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">Category<select name="expense-category" defaultValue={expense?.category ?? "Grocery"} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">{expenseCategories.map((categoryName) => <option key={categoryName} value={categoryName}>{categoryName}</option>)}</select></label><label className="block text-sm font-medium">Amount ($)<input name="expense-amount" required min="0.01" step="0.01" type="number" defaultValue={expense?.amount ?? ""} placeholder="0.00" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" /></label></div>
+          <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white dark:bg-teal-300 dark:text-slate-950"><Save className="h-4 w-4" />{expense ? "Save expense" : "Add expense"}</button>
+        </form>
+      </motion.section>
+    </motion.div>
   );
 }
 
