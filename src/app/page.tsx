@@ -10,11 +10,14 @@ import {
   Bell,
   CalendarDays,
   Check,
+  CircleCheckBig,
+  CircleDollarSign,
   ChevronLeft,
   ChevronRight,
   Clock,
   Copy,
   ExternalLink,
+  Filter,
   Gift,
   Globe2,
   Home,
@@ -26,6 +29,7 @@ import {
   Plus,
   Search,
   Settings,
+  ShoppingBasket,
   Sparkles,
   Star,
   Sun,
@@ -93,7 +97,17 @@ type Notice = {
   createdAt: string;
 };
 
-type Section = "dashboard" | "rewards" | "calendar" | "notifications" | "settings";
+type PantryItem = {
+  id: string;
+  purchased: boolean;
+  category: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+};
+
+type Section = "dashboard" | "rewards" | "calendar" | "pantry" | "notifications" | "settings";
 type CalendarView = "month" | "week" | "day" | "agenda";
 type RewardSheetChild = "jiya" | "lakhan";
 
@@ -243,6 +257,59 @@ const seedNotifications: Notice[] = [
   { id: "n3", message: "Reward redeemed", detail: "Extra Screen Time was redeemed this week.", read: true, createdAt: isoDay(-3, 17, 30) }
 ];
 
+const seedPantryItems: PantryItem[] = [
+  { id: "pantry-01", purchased: false, category: "Dals & Pulses", name: "Split Pigeon Peas (Thuvaram Paruppu / துவரம் பருப்பு)", quantity: 2, unit: "kg", unitPrice: 4.5 },
+  { id: "pantry-02", purchased: false, category: "Dals & Pulses", name: "Split Yellow Mung Dal (Paasi Paruppu / பாசி பருப்பு)", quantity: 1, unit: "kg", unitPrice: 3.99 },
+  { id: "pantry-03", purchased: false, category: "Dals & Pulses", name: "Split Bengal Gram / Chana Dal (Kadalai Paruppu / கடலை பருப்பு)", quantity: 1, unit: "kg", unitPrice: 3.49 },
+  { id: "pantry-04", purchased: false, category: "Dals & Pulses", name: "Split Black Gram / Urad Dal (Ulutham Paruppu / உளுத்தம் பருப்பு)", quantity: 1, unit: "kg", unitPrice: 4.29 },
+  { id: "pantry-05", purchased: false, category: "Dals & Pulses", name: "Red Lentils / Masoor Dal (Masoor Paruppu / மசூர் பருப்பு)", quantity: 1, unit: "kg", unitPrice: 3.29 },
+  { id: "pantry-06", purchased: false, category: "Dals & Pulses", name: "Chickpeas / Kabuli Chana (Kondaikadalai / கொண்டைக்கடலை)", quantity: 2, unit: "kg", unitPrice: 3.89 },
+  { id: "pantry-07", purchased: true, category: "Grains & Flours", name: "Basmati Rice (Basmati Arisi / பாசுமதி அரிசி)", quantity: 5, unit: "kg", unitPrice: 14.99 },
+  { id: "pantry-08", purchased: true, category: "Grains & Flours", name: "Whole Wheat Flour / Atta (Godhumai Maavu / கோதுமை மாவு)", quantity: 10, unit: "kg", unitPrice: 12.99 },
+  { id: "pantry-09", purchased: false, category: "Grains & Flours", name: "Sona Masoori Rice (Sona Masoori Arisi / சோனா மசூரி அரிசி)", quantity: 5, unit: "kg", unitPrice: 11.49 },
+  { id: "pantry-10", purchased: false, category: "Grains & Flours", name: "Semolina / Rava (Sooji / ரவை)", quantity: 1, unit: "kg", unitPrice: 2.49 },
+  { id: "pantry-11", purchased: false, category: "Grains & Flours", name: "Flattened Rice / Poha (Aval / அவல்)", quantity: 1, unit: "kg", unitPrice: 2.99 },
+  { id: "pantry-12", purchased: true, category: "Spices & Masalas", name: "Turmeric Powder (Manjal Thool / மஞ்சள் தூள்)", quantity: 1, unit: "pack", unitPrice: 2.99 },
+  { id: "pantry-13", purchased: false, category: "Spices & Masalas", name: "Cumin Seeds (Seeragam / சீரகம்)", quantity: 1, unit: "pack", unitPrice: 3.49 },
+  { id: "pantry-14", purchased: false, category: "Spices & Masalas", name: "Mustard Seeds (Kadugu / கடுகு)", quantity: 1, unit: "pack", unitPrice: 2.29 },
+  { id: "pantry-15", purchased: false, category: "Spices & Masalas", name: "Kashmiri Red Chili (Kashmiri Milagai / காஷ்மீரி மிளகாய்)", quantity: 1, unit: "pack", unitPrice: 3.99 },
+  { id: "pantry-16", purchased: false, category: "Spices & Masalas", name: "Coriander Powder (Malli Thool / மல்லித் தூள்)", quantity: 1, unit: "pack", unitPrice: 2.79 },
+  { id: "pantry-17", purchased: false, category: "Spices & Masalas", name: "Garam Masala (Garam Masala / கரம் மசாலா)", quantity: 1, unit: "pack", unitPrice: 4.49 },
+  { id: "pantry-18", purchased: false, category: "Spices & Masalas", name: "Asafoetida / Hing (Perungayam / பெருங்காயம்)", quantity: 1, unit: "tin", unitPrice: 3.99 },
+  { id: "pantry-19", purchased: false, category: "Spices & Masalas", name: "Green Cardamom (Elakkai / ஏலக்காய்)", quantity: 1, unit: "pack", unitPrice: 5.99 },
+  { id: "pantry-20", purchased: true, category: "Oils & Ghee", name: "Clarified Butter / Ghee (Nei / நெய்)", quantity: 1, unit: "jar", unitPrice: 16.99 },
+  { id: "pantry-21", purchased: false, category: "Oils & Ghee", name: "Mustard Oil (Kadugu Ennai / கடுகு எண்ணெய்)", quantity: 1, unit: "bottle", unitPrice: 6.49 },
+  { id: "pantry-22", purchased: false, category: "Oils & Ghee", name: "Sunflower Cooking Oil (Sooriyagandhi Ennai / சூரியகாந்தி எண்ணெய்)", quantity: 2, unit: "bottle", unitPrice: 7.99 },
+  { id: "pantry-23", purchased: false, category: "Oils & Ghee", name: "Cold Pressed Coconut Oil (Thengai Ennai / தேங்காய் எண்ணெய்)", quantity: 1, unit: "jar", unitPrice: 5.49 },
+  { id: "pantry-24", purchased: false, category: "Dairy & Fresh", name: "Paneer / Cottage Cheese (Paneer / பன்னீர்)", quantity: 2, unit: "pack", unitPrice: 5.99 },
+  { id: "pantry-25", purchased: false, category: "Dairy & Fresh", name: "Curd / Yogurt (Thayir / தயிர்)", quantity: 1, unit: "tub", unitPrice: 4.29 },
+  { id: "pantry-26", purchased: false, category: "Dairy & Fresh", name: "Fresh Whole Milk (Pasum Paal / பசும் பால்)", quantity: 1, unit: "gallon", unitPrice: 4.19 },
+  { id: "pantry-27", purchased: false, category: "Dairy & Fresh", name: "Salted Butter (Vennai / வெண்ணெய்)", quantity: 1, unit: "pack", unitPrice: 5.49 },
+  { id: "pantry-28", purchased: true, category: "Produce & Aromatics", name: "Red Onions (Vengayam / வெங்காயம்)", quantity: 5, unit: "lb", unitPrice: 3.99 },
+  { id: "pantry-29", purchased: false, category: "Produce & Aromatics", name: "Fresh Ginger (Inji / இஞ்சி)", quantity: 1, unit: "lb", unitPrice: 1.99 },
+  { id: "pantry-30", purchased: false, category: "Produce & Aromatics", name: "Fresh Garlic (Poondu / பூண்டு)", quantity: 2, unit: "pack", unitPrice: 2.49 },
+  { id: "pantry-31", purchased: false, category: "Produce & Aromatics", name: "Green Chilies (Pachai Milagai / பச்சை மிளகாய்)", quantity: 1, unit: "pack", unitPrice: 1.49 },
+  { id: "pantry-32", purchased: false, category: "Produce & Aromatics", name: "Curry Leaves & Cilantro (Kariveppilai & Kothamalli / கரிவேப்பிலை & கொத்தமல்லி)", quantity: 2, unit: "bunch", unitPrice: 1.99 },
+  { id: "pantry-33", purchased: false, category: "Meat & Seafood", name: "Fresh Chicken (Kozhi / கோழி)", quantity: 2, unit: "kg", unitPrice: 8.99 },
+  { id: "pantry-34", purchased: false, category: "Meat & Seafood", name: "Mutton / Goat Meat (Aattukari / ஆட்டுக்கறி)", quantity: 1, unit: "kg", unitPrice: 18.99 },
+  { id: "pantry-35", purchased: false, category: "Meat & Seafood", name: "Fresh Fish (Meen / மீன்)", quantity: 1, unit: "kg", unitPrice: 12.99 },
+  { id: "pantry-36", purchased: false, category: "Meat & Seafood", name: "Fresh Prawns (Eral / இறால்)", quantity: 1, unit: "kg", unitPrice: 11.99 },
+  { id: "pantry-37", purchased: false, category: "Meat & Seafood", name: "Eggs (Muttai / முட்டை)", quantity: 1, unit: "pack", unitPrice: 4.49 },
+  { id: "pantry-38", purchased: false, category: "Vegetables", name: "Tomatoes (Thakkali / தக்காளி)", quantity: 2, unit: "kg", unitPrice: 2.99 },
+  { id: "pantry-39", purchased: false, category: "Vegetables", name: "Potatoes (Urulaikizhangu / உருளைக்கிழங்கு)", quantity: 2, unit: "kg", unitPrice: 2.49 },
+  { id: "pantry-40", purchased: false, category: "Vegetables", name: "Brinjal (Kathirikai / கத்திரிக்காய்)", quantity: 1, unit: "kg", unitPrice: 3.49 },
+  { id: "pantry-41", purchased: false, category: "Vegetables", name: "Okra (Vendakkai / வெண்டைக்காய்)", quantity: 1, unit: "kg", unitPrice: 3.99 },
+  { id: "pantry-42", purchased: false, category: "Vegetables", name: "Drumstick (Murungakkai / முருங்கைக்காய்)", quantity: 1, unit: "pack", unitPrice: 2.99 },
+  { id: "pantry-43", purchased: false, category: "Vegetables", name: "Carrots (Carrot / கேரட்)", quantity: 1, unit: "kg", unitPrice: 2.49 },
+  { id: "pantry-44", purchased: false, category: "Vegetables", name: "Green Beans (Beans / பீன்ஸ்)", quantity: 1, unit: "kg", unitPrice: 3.49 },
+  { id: "pantry-45", purchased: false, category: "Fruits", name: "Bananas (Vazhaipazham / வாழைப்பழம்)", quantity: 1, unit: "bunch", unitPrice: 2.49 },
+  { id: "pantry-46", purchased: false, category: "Fruits", name: "Apples (Aappil / ஆப்பிள்)", quantity: 2, unit: "kg", unitPrice: 3.99 },
+  { id: "pantry-47", purchased: false, category: "Fruits", name: "Mangoes (Mambazham / மாம்பழம்)", quantity: 1, unit: "box", unitPrice: 8.99 },
+  { id: "pantry-48", purchased: false, category: "Fruits", name: "Pomegranate (Mathulai / மாதுளை)", quantity: 2, unit: "pack", unitPrice: 4.49 },
+  { id: "pantry-49", purchased: false, category: "Fruits", name: "Sweet Lime (Sathukudi / சாத்துக்குடி)", quantity: 1, unit: "kg", unitPrice: 3.99 },
+  { id: "pantry-50", purchased: false, category: "Fruits", name: "Grapes (Thiratchai / திராட்சை)", quantity: 1, unit: "pack", unitPrice: 3.49 }
+];
+
 const rewardSheetChildren = [
   { id: "jiya", name: "Jiya", homeTask: "Wash dishes" },
   { id: "lakhan", name: "Lakshan", homeTask: "Vacuum home" }
@@ -266,6 +333,7 @@ function App() {
   const [events, setEvents] = useState(seedEvents);
   const [transactions, setTransactions] = useState(seedTransactions);
   const [notifications, setNotifications] = useState(seedNotifications);
+  const [pantryItems, setPantryItems] = useState(seedPantryItems);
   const [calendarView, setCalendarView] = useState<CalendarView>("month");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -454,7 +522,7 @@ function App() {
                     Create rewards
                   </button>
                 )}
-                {item.id === "calendar" && (
+                {item.id === "pantry" && (
                   <div className="mt-2 space-y-2">
                     {sidebarWebGroups.map((group) => (
                       <div key={group.label}>
@@ -539,7 +607,7 @@ function App() {
             </div>
           </header>
 
-          <nav className="mb-4 grid grid-cols-5 gap-2 lg:hidden">
+          <nav className="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-6 lg:hidden">
             {navItems.map((item) => (
               <button
                 key={item.id}
@@ -604,6 +672,7 @@ function App() {
                   setEvents={setEvents}
                 />
               )}
+              {activeSection === "pantry" && <Pantry items={pantryItems} setItems={setPantryItems} />}
               {activeSection === "notifications" && (
                 <Notifications notifications={notifications} setNotifications={setNotifications} />
               )}
@@ -694,6 +763,7 @@ const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] =
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "rewards", label: "Rewards", icon: Gift },
   { id: "calendar", label: "Calendar", icon: CalendarDays },
+  { id: "pantry", label: "Pantry", icon: ShoppingBasket },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "settings", label: "Settings", icon: Settings }
 ];
@@ -1022,6 +1092,310 @@ function Rewards({
         </Panel>
       </section>
     </div>
+  );
+}
+
+function Pantry({
+  items,
+  setItems
+}: {
+  items: PantryItem[];
+  setItems: React.Dispatch<React.SetStateAction<PantryItem[]>>;
+}) {
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("All");
+  const [pendingOnly, setPendingOnly] = useState(false);
+  const [addItemOpen, setAddItemOpen] = useState(false);
+  const currency = useMemo(() => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }), []);
+  const categories = useMemo(() => Array.from(new Set(items.map((item) => item.category))), [items]);
+  const visibleItems = useMemo(() => {
+    const searchTerm = search.trim().toLowerCase();
+    return items.filter((item) => {
+      const matchesSearch = !searchTerm || `${item.name} ${item.category}`.toLowerCase().includes(searchTerm);
+      const matchesCategory = category === "All" || item.category === category;
+      return matchesSearch && matchesCategory && (!pendingOnly || !item.purchased);
+    });
+  }, [category, items, pendingOnly, search]);
+  const categorySummaries = useMemo(
+    () =>
+      categories.map((categoryName) => {
+        const categoryItems = items.filter((item) => item.category === categoryName);
+        return {
+          category: categoryName,
+          items: categoryItems.length,
+          purchased: categoryItems.filter((item) => item.purchased).length,
+          spend: categoryItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
+        };
+      }),
+    [categories, items]
+  );
+  const totalSpend = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const purchasedItems = items.filter((item) => item.purchased);
+  const purchasedSpend = purchasedItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const pendingItems = items.length - purchasedItems.length;
+  const highestCategorySpend = Math.max(...categorySummaries.map((summary) => summary.spend), 1);
+  const categoryColors = ["bg-teal-500", "bg-sky-500", "bg-rose-500", "bg-amber-500", "bg-emerald-500", "bg-violet-500", "bg-cyan-500", "bg-lime-500", "bg-pink-500"];
+
+  const togglePurchased = (id: string) => {
+    setItems((current) => current.map((item) => (item.id === id ? { ...item, purchased: !item.purchased } : item)));
+  };
+
+  const updateNumber = (id: string, field: "quantity" | "unitPrice", value: string) => {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue) || numericValue < 0) return;
+    setItems((current) => current.map((item) => (item.id === id ? { ...item, [field]: numericValue } : item)));
+  };
+
+  const createItem = (formData: FormData) => {
+    const name = String(formData.get("pantry-name") || "").trim();
+    const itemCategory = String(formData.get("pantry-category") || "").trim();
+    const quantity = Number(formData.get("pantry-quantity") || 0);
+    const unitPrice = Number(formData.get("pantry-unit-price") || 0);
+    const unit = String(formData.get("pantry-unit") || "item").trim() || "item";
+    if (!name || !itemCategory || !Number.isFinite(quantity) || quantity < 0 || !Number.isFinite(unitPrice) || unitPrice < 0) return;
+    setItems((current) => [
+      { id: crypto.randomUUID(), purchased: false, category: itemCategory, name, quantity, unit, unitPrice },
+      ...current
+    ]);
+    setAddItemOpen(false);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">Household list</p>
+          <h2 className="mt-1 text-3xl font-semibold">Pantry</h2>
+        </div>
+        <button onClick={() => setAddItemOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 dark:bg-teal-300 dark:text-slate-950">
+          <Plus className="h-4 w-4" />
+          Add item
+        </button>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <PantryMetric label="Total items" value={items.length.toLocaleString()} detail="Staples on list" icon={ListChecks} tone="bg-teal-100 text-teal-700 dark:bg-teal-300/15 dark:text-teal-200" />
+        <PantryMetric label="Items purchased" value={purchasedItems.length.toLocaleString()} detail={`${items.length ? Math.round((purchasedItems.length / items.length) * 100) : 0}% completed`} icon={CircleCheckBig} tone="bg-emerald-100 text-emerald-700 dark:bg-emerald-300/15 dark:text-emerald-200" />
+        <PantryMetric label="Items pending" value={pendingItems.toLocaleString()} detail="Still to buy" icon={ShoppingBasket} tone="bg-amber-100 text-amber-700 dark:bg-amber-300/15 dark:text-amber-200" />
+        <PantryMetric label="Estimated spend" value={currency.format(totalSpend)} detail={`Cart total: ${currency.format(purchasedSpend)}`} icon={CircleDollarSign} tone="bg-rose-100 text-rose-700 dark:bg-rose-300/15 dark:text-rose-200" />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+        <Panel title="Budget by section">
+          <div className="space-y-3">
+            {categorySummaries.map((summary, index) => (
+              <div key={summary.category}>
+                <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
+                  <span className="truncate font-medium">{summary.category}</span>
+                  <strong className="shrink-0 tabular-nums">{currency.format(summary.spend)}</strong>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
+                  <div className={cn("h-full rounded-full", categoryColors[index % categoryColors.length])} style={{ width: `${Math.max((summary.spend / highestCategorySpend) * 100, 3)}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel title="Purchase progress">
+          <div className="space-y-3">
+            {categorySummaries.map((summary, index) => {
+              const percentage = summary.items ? Math.round((summary.purchased / summary.items) * 100) : 0;
+              return (
+                <div key={summary.category} className="flex items-center gap-3">
+                  <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", categoryColors[index % categoryColors.length])} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex justify-between gap-3 text-sm">
+                      <span className="truncate font-medium">{summary.category}</span>
+                      <span className="shrink-0 text-slate-500 dark:text-slate-400">{summary.purchased}/{summary.items}</span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
+                      <div className={cn("h-full rounded-full", categoryColors[index % categoryColors.length])} style={{ width: `${percentage}%` }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+      </div>
+
+      <Panel title="Pantry overview">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-left text-sm">
+            <thead className="border-b border-slate-200 text-xs uppercase tracking-[0.1em] text-slate-500 dark:border-white/10 dark:text-slate-300">
+              <tr>
+                <th className="pb-3 font-semibold">Category</th>
+                <th className="pb-3 text-right font-semibold">Items</th>
+                <th className="pb-3 text-right font-semibold">Purchased</th>
+                <th className="pb-3 text-right font-semibold">Est. spend</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-white/10">
+              {categorySummaries.map((summary) => (
+                <tr key={summary.category}>
+                  <td className="py-3 font-medium">{summary.category}</td>
+                  <td className="py-3 text-right tabular-nums">{summary.items}</td>
+                  <td className="py-3 text-right tabular-nums">{summary.purchased}</td>
+                  <td className="py-3 text-right font-semibold tabular-nums">{currency.format(summary.spend)}</td>
+                </tr>
+              ))}
+              <tr className="border-t-2 border-slate-300 font-semibold dark:border-white/20">
+                <td className="pt-3">Total</td>
+                <td className="pt-3 text-right tabular-nums">{items.length}</td>
+                <td className="pt-3 text-right tabular-nums">{purchasedItems.length}</td>
+                <td className="pt-3 text-right tabular-nums">{currency.format(totalSpend)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+
+      <Panel title="Pantry list" action="Add item" onAction={() => setAddItemOpen(true)}>
+        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center">
+          <label className="relative block min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search pantry" className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" />
+          </label>
+          <select value={category} onChange={(event) => setCategory(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">
+            <option value="All">All categories</option>
+            {categories.map((categoryName) => (
+              <option key={categoryName} value={categoryName}>{categoryName}</option>
+            ))}
+          </select>
+          <button onClick={() => setPendingOnly((current) => !current)} className={cn("inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold transition", pendingOnly ? "border-teal-600 bg-teal-600 text-white dark:border-teal-300 dark:bg-teal-300 dark:text-slate-950" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10")}>
+            <Filter className="h-4 w-4" />
+            Pending only
+          </button>
+        </div>
+
+        <div className="max-h-[560px] overflow-auto rounded-xl border border-slate-200 dark:border-white/10">
+          <table className="w-full min-w-[960px] border-collapse text-left text-sm">
+            <thead className="sticky top-0 z-10 bg-amber-800 text-xs uppercase tracking-[0.08em] text-white">
+              <tr>
+                <th className="w-20 px-3 py-3 text-center">Status</th>
+                <th className="min-w-36 px-3 py-3">Category</th>
+                <th className="min-w-[330px] px-3 py-3">Item (English / Tamil)</th>
+                <th className="w-24 px-3 py-3 text-right">Quantity</th>
+                <th className="w-24 px-3 py-3">Unit</th>
+                <th className="w-28 px-3 py-3 text-right">Unit price</th>
+                <th className="w-28 px-3 py-3 text-right">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-white/10">
+              {visibleItems.map((item) => {
+                const subtotal = item.quantity * item.unitPrice;
+                return (
+                  <tr key={item.id} className={cn("transition-colors hover:bg-teal-50/70 dark:hover:bg-teal-300/5", item.purchased && "bg-slate-50/80 text-slate-400 dark:bg-white/5 dark:text-slate-500")}>
+                    <td className="px-3 py-2.5 text-center">
+                      <input type="checkbox" checked={item.purchased} onChange={() => togglePurchased(item.id)} aria-label={`Mark ${item.name} as purchased`} className="h-4 w-4 rounded border-slate-300 accent-teal-600" />
+                    </td>
+                    <td className={cn("px-3 py-2.5 font-medium", item.purchased && "line-through")}>{item.category}</td>
+                    <td className={cn("px-3 py-2.5", item.purchased && "line-through")}>{item.name}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      <input aria-label={`Quantity for ${item.name}`} type="number" min="0" step="0.5" value={item.quantity} onChange={(event) => updateNumber(item.id, "quantity", event.target.value)} className="w-16 rounded-lg border border-transparent bg-transparent px-1 py-1 text-right tabular-nums outline-none hover:border-slate-200 focus:border-teal-400 dark:hover:border-white/10" />
+                    </td>
+                    <td className="px-3 py-2.5">{item.unit}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      <label className="inline-flex items-center gap-1">
+                        <span className="text-slate-400">$</span>
+                        <input aria-label={`Unit price for ${item.name}`} type="number" min="0" step="0.01" value={item.unitPrice} onChange={(event) => updateNumber(item.id, "unitPrice", event.target.value)} className="w-16 rounded-lg border border-transparent bg-transparent px-1 py-1 text-right tabular-nums outline-none hover:border-slate-200 focus:border-teal-400 dark:hover:border-white/10" />
+                      </label>
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{currency.format(subtotal)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {visibleItems.length === 0 && <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">No pantry items match this filter.</p>}
+      </Panel>
+
+      <AnimatePresence>
+        {addItemOpen && <PantryItemModal categories={categories} onClose={() => setAddItemOpen(false)} onCreate={createItem} />}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function PantryMetric({
+  label,
+  value,
+  detail,
+  icon: Icon,
+  tone
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  icon: typeof ListChecks;
+  tone: string;
+}) {
+  return (
+    <section className="rounded-[1.5rem] border border-white/80 bg-white/75 p-5 shadow-panel backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/60">
+      <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", tone)}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <p className="mt-5 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-1 text-3xl font-semibold tabular-nums">{value}</p>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{detail}</p>
+    </section>
+  );
+}
+
+function PantryItemModal({
+  categories,
+  onClose,
+  onCreate
+}: {
+  categories: string[];
+  onClose: () => void;
+  onCreate: (formData: FormData) => void;
+}) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <div className="absolute inset-0 cursor-default" onClick={onClose} />
+      <motion.section role="dialog" aria-modal="true" aria-labelledby="pantry-item-title" initial={{ scale: 0.96, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 12 }} className="relative w-full max-w-lg rounded-[1.5rem] bg-white p-5 shadow-panel dark:bg-slate-950 sm:p-6">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">Pantry</p>
+            <h2 id="pantry-item-title" className="mt-1 text-2xl font-semibold">Add pantry item</h2>
+          </div>
+          <button className="rounded-full p-2 hover:bg-slate-100 dark:hover:bg-white/10" onClick={onClose} aria-label="Close add pantry item">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <form action={onCreate} className="space-y-3">
+          <Input name="pantry-name" label="Item name" placeholder="Coconut milk (Thengai Paal / தேங்காய் பால்)" />
+          <label className="block text-sm font-medium">
+            Category
+            <select name="pantry-category" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">
+              {categories.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <Input name="pantry-quantity" label="Quantity" type="number" placeholder="1" />
+            <Input name="pantry-unit" label="Unit" placeholder="pack" />
+          </div>
+          <Input name="pantry-unit-price" label="Unit price" type="number" placeholder="4.99" />
+          <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white dark:bg-teal-300 dark:text-slate-950">
+            <Plus className="h-4 w-4" />
+            Add item
+          </button>
+        </form>
+      </motion.section>
+    </motion.div>
   );
 }
 
