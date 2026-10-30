@@ -129,6 +129,7 @@ type Expense = {
 };
 
 type ChoreFrequency = "Daily" | "Weekly" | "Monthly" | "Annual";
+type ChoreAssignee = "Ganesh" | "Nisha" | "Jiya" | "Lakshan";
 
 type Chore = {
   id: string;
@@ -136,10 +137,21 @@ type Chore = {
   category: string;
   frequency: ChoreFrequency;
   schedule: string;
-  assignee: string;
+  assignee: ChoreAssignee;
   completed: boolean;
   completedAt?: string;
 };
+
+const choreFamilyMembers: Array<{ name: ChoreAssignee; role: string; initials: string; color: string; softColor: string }> = [
+  { name: "Ganesh", role: "Father", initials: "G", color: "#0f766e", softColor: "bg-teal-100 text-teal-800 dark:bg-teal-300/15 dark:text-teal-100" },
+  { name: "Nisha", role: "Mother", initials: "N", color: "#db2777", softColor: "bg-pink-100 text-pink-800 dark:bg-pink-300/15 dark:text-pink-100" },
+  { name: "Jiya", role: "Daughter", initials: "J", color: "#7c3aed", softColor: "bg-violet-100 text-violet-800 dark:bg-violet-300/15 dark:text-violet-100" },
+  { name: "Lakshan", role: "Son", initials: "L", color: "#0284c7", softColor: "bg-sky-100 text-sky-800 dark:bg-sky-300/15 dark:text-sky-100" }
+];
+
+function isChoreAssignee(value: string): value is ChoreAssignee {
+  return choreFamilyMembers.some((member) => member.name === value);
+}
 
 type BillAttachment = {
   id: string;
@@ -592,52 +604,54 @@ const seedPantryItems: PantryItem[] = [
 ];
 
 const seedChores: Chore[] = [
-  ["Sweeping", "Indoor", "Daily", "Every afternoon", "Shared"],
-  ["Drop Jiya", "Childcare", "Daily", "School / activity drop-off", "Shared"],
-  ["Lakshan poop clean", "Childcare", "Daily", "As needed", "Shared"],
-  ["Feed Lakshan", "Childcare", "Daily", "Morning and evening", "Shared"],
-  ["Drop kid (Lakshan)", "Childcare", "Daily", "School / activity drop-off", "Shared"],
-  ["Breakfast prep", "Cooking & Kitchen", "Daily", "Morning", "Shared"],
-  ["Lunch preparation", "Cooking & Kitchen", "Daily", "Morning", "Shared"],
-  ["Clean bedroom", "Family Routine", "Daily", "Evening reset", "Shared"],
-  ["Pick Lakshan", "Childcare", "Daily", "School / activity pick-up", "Shared"],
-  ["Lakshan bath", "Childcare", "Daily", "Evening", "Shared"],
-  ["Snacks to kids", "Childcare", "Daily", "Afternoon", "Shared"],
-  ["Kids homework", "Childcare", "Daily", "After school", "Shared"],
-  ["Make dinner", "Cooking & Kitchen", "Daily", "Evening", "Shared"],
-  ["Make kids sleep", "Childcare", "Daily", "Bedtime", "Shared"],
-  ["Dish washing", "Cooking & Kitchen", "Daily", "After meals", "Shared"],
-  ["Vegetable cutting", "Cooking & Kitchen", "Daily", "Meal preparation", "Shared"],
-  ["Mopping (Mobing)", "Indoor", "Weekly", "Every 2 weeks", "GM"],
-  ["Toilet cleaning", "Indoor", "Weekly", "Every week", "GM"],
-  ["Bath tub cleaning", "Indoor", "Weekly", "Every 2 weeks", "GM"],
-  ["Laundry", "Indoor", "Weekly", "Monday and Friday", "Shared"],
-  ["Pool cleaning", "Outdoor & Garden", "Weekly", "Every 2 weeks", "GM"],
-  ["Gardening", "Outdoor & Garden", "Weekly", "Every 2 weeks", "GM"],
-  ["Pest control and vigilance", "Outdoor & Garden", "Weekly", "Every week", "GM"],
-  ["Weed plucking", "Outdoor & Garden", "Weekly", "Every 2 weeks", "GM"],
-  ["Book pick / drop", "Family Routine", "Weekly", "Weekly", "Shared"],
-  ["Mop floors", "Indoor", "Weekly", "Weekly", "Shared"],
-  ["Cloth arrangement", "Indoor", "Weekly", "Weekly", "Shared"],
-  ["Vacuum home", "Indoor", "Weekly", "Weekly", "Shared"],
-  ["Clean kitchen", "Cooking & Kitchen", "Weekly", "Weekly", "Shared"],
-  ["Grocery purchase", "Family Routine", "Weekly", "Weekly", "Shared"],
-  ["Glass door cleaning", "Indoor", "Monthly", "Once a month", "GM"],
-  ["Floor vacuum", "Indoor", "Monthly", "Once a month", "GM"],
-  ["Fragrance monitor", "Indoor", "Monthly", "Once a month", "GM"],
-  ["Kitchen countertop clean", "Cooking & Kitchen", "Monthly", "Once a month", "GM"],
-  ["Watering plants", "Outdoor & Garden", "Monthly", "Once a month", "GM"],
-  ["Neem water", "Outdoor & Garden", "Monthly", "Once a month", "Feed Jiya"],
-  ["Annual deep clean & home review", "Indoor", "Annual", "Once a year", "GM"]
+  ["Sweeping", "Indoor", "Daily", "Every afternoon", "Ganesh"],
+  ["Drop Jiya", "Childcare", "Daily", "School / activity drop-off", "Nisha"],
+  ["Lakshan poop clean", "Childcare", "Daily", "As needed", "Nisha"],
+  ["Feed Lakshan", "Childcare", "Daily", "Morning and evening", "Nisha"],
+  ["Drop kid (Lakshan)", "Childcare", "Daily", "School / activity drop-off", "Nisha"],
+  ["Breakfast prep", "Cooking & Kitchen", "Daily", "Morning", "Nisha"],
+  ["Lunch preparation", "Cooking & Kitchen", "Daily", "Morning", "Nisha"],
+  ["Clean bedroom", "Family Routine", "Daily", "Evening reset", "Jiya"],
+  ["Pick Lakshan", "Childcare", "Daily", "School / activity pick-up", "Nisha"],
+  ["Lakshan bath", "Childcare", "Daily", "Evening", "Nisha"],
+  ["Snacks to kids", "Childcare", "Daily", "Afternoon", "Nisha"],
+  ["Kids homework", "Childcare", "Daily", "After school", "Jiya"],
+  ["Make dinner", "Cooking & Kitchen", "Daily", "Evening", "Nisha"],
+  ["Make kids sleep", "Childcare", "Daily", "Bedtime", "Nisha"],
+  ["Dish washing", "Cooking & Kitchen", "Daily", "After meals", "Lakshan"],
+  ["Vegetable cutting", "Cooking & Kitchen", "Daily", "Meal preparation", "Jiya"],
+  ["Mopping (Mobing)", "Indoor", "Weekly", "Every 2 weeks", "Ganesh"],
+  ["Toilet cleaning", "Indoor", "Weekly", "Every week", "Ganesh"],
+  ["Bath tub cleaning", "Indoor", "Weekly", "Every 2 weeks", "Ganesh"],
+  ["Laundry", "Indoor", "Weekly", "Monday and Friday", "Jiya"],
+  ["Pool cleaning", "Outdoor & Garden", "Weekly", "Every 2 weeks", "Ganesh"],
+  ["Gardening", "Outdoor & Garden", "Weekly", "Every 2 weeks", "Ganesh"],
+  ["Pest control and vigilance", "Outdoor & Garden", "Weekly", "Every week", "Ganesh"],
+  ["Weed plucking", "Outdoor & Garden", "Weekly", "Every 2 weeks", "Ganesh"],
+  ["Book pick / drop", "Family Routine", "Weekly", "Weekly", "Jiya"],
+  ["Mop floors", "Indoor", "Weekly", "Weekly", "Ganesh"],
+  ["Cloth arrangement", "Indoor", "Weekly", "Weekly", "Lakshan"],
+  ["Vacuum home", "Indoor", "Weekly", "Weekly", "Ganesh"],
+  ["Clean kitchen", "Cooking & Kitchen", "Weekly", "Weekly", "Nisha"],
+  ["Grocery purchase", "Family Routine", "Weekly", "Weekly", "Ganesh"],
+  ["Glass door cleaning", "Indoor", "Monthly", "Once a month", "Ganesh"],
+  ["Floor vacuum", "Indoor", "Monthly", "Once a month", "Ganesh"],
+  ["Fragrance monitor", "Indoor", "Monthly", "Once a month", "Ganesh"],
+  ["Kitchen countertop clean", "Cooking & Kitchen", "Monthly", "Once a month", "Nisha"],
+  ["Watering plants", "Outdoor & Garden", "Monthly", "Once a month", "Jiya"],
+  ["Neem water", "Outdoor & Garden", "Monthly", "Once a month", "Lakshan"],
+  ["Annual deep clean & home review", "Indoor", "Annual", "Once a year", "Ganesh"]
 ].map(([title, category, frequency, schedule, assignee], index) => ({
   id: `chore-${String(index + 1).padStart(2, "0")}`,
   title,
   category,
   frequency: frequency as ChoreFrequency,
   schedule,
-  assignee,
+  assignee: assignee as ChoreAssignee,
   completed: false
 }));
+
+const seedChoreResponsibilities = new Map(seedChores.map((chore) => [chore.title, chore.assignee]));
 
 const rewardSheetChildren = [
   { id: "jiya", name: "Jiya", homeTask: "Wash dishes" },
@@ -2057,7 +2071,11 @@ function Chores() {
             if (!candidate || typeof candidate !== "object") return false;
             const value = candidate as Partial<Chore>;
             return typeof value.id === "string" && typeof value.title === "string" && typeof value.category === "string" && typeof value.schedule === "string" && typeof value.assignee === "string" && ["Daily", "Weekly", "Monthly", "Annual"].includes(String(value.frequency));
-          }).map((item) => ({ ...item, completed: Boolean(item.completed) }));
+          }).map((item) => ({
+            ...item,
+            assignee: isChoreAssignee(item.assignee) ? item.assignee : seedChoreResponsibilities.get(item.title) ?? "Nisha",
+            completed: Boolean(item.completed)
+          }));
           if (restored.length) setChores(restored);
         }
       }
@@ -2074,7 +2092,7 @@ function Chores() {
 
   const frequencies: readonly (ChoreFrequency | "All")[] = ["Daily", "Weekly", "Monthly", "Annual", "All"];
   const categories = useMemo(() => Array.from(new Set(chores.map((chore) => chore.category))).sort(), [chores]);
-  const assignees = useMemo(() => Array.from(new Set(chores.map((chore) => chore.assignee))).sort(), [chores]);
+  const assignees = choreFamilyMembers;
   const frequencyCounts = useMemo(() => Object.fromEntries((["Daily", "Weekly", "Monthly", "Annual"] as ChoreFrequency[]).map((frequency) => [frequency, chores.filter((chore) => chore.frequency === frequency).length])) as Record<ChoreFrequency, number>, [chores]);
   const visibleChores = useMemo(() => chores.filter((chore) => {
     const matchesFrequency = activeFrequency === "All" || chore.frequency === activeFrequency;
@@ -2087,12 +2105,16 @@ function Chores() {
   const completedCount = cadenceChores.filter((chore) => chore.completed).length;
   const completionPercent = cadenceChores.length ? Math.round((completedCount / cadenceChores.length) * 100) : 0;
   const cadenceLabel = activeFrequency === "All" ? "Family" : activeFrequency;
+  const allocation = useMemo(() => choreFamilyMembers.map((member) => {
+    const total = chores.filter((chore) => chore.assignee === member.name).length;
+    return { ...member, total, percent: chores.length ? Math.round((total / chores.length) * 100) : 0 };
+  }), [chores]);
 
   const toggleComplete = (id: string) => {
     setChores((current) => current.map((chore) => chore.id === id ? { ...chore, completed: !chore.completed, completedAt: chore.completed ? undefined : new Date().toISOString() } : chore));
   };
 
-  const updateAssignee = (id: string, nextAssignee: string) => {
+  const updateAssignee = (id: string, nextAssignee: ChoreAssignee) => {
     setChores((current) => current.map((chore) => chore.id === id ? { ...chore, assignee: nextAssignee } : chore));
   };
 
@@ -2101,13 +2123,14 @@ function Chores() {
     if (!title) return;
     const frequencyValue = String(formData.get("chore-frequency") || "Weekly");
     const frequency: ChoreFrequency = ["Daily", "Weekly", "Monthly", "Annual"].includes(frequencyValue) ? frequencyValue as ChoreFrequency : "Weekly";
+    const assignedTo = String(formData.get("chore-assignee") || "Nisha");
     const nextChore: Chore = {
       id: editingChore?.id ?? crypto.randomUUID(),
       title,
       category: String(formData.get("chore-category") || "Family Routine"),
       frequency,
       schedule: String(formData.get("chore-schedule") || frequency),
-      assignee: String(formData.get("chore-assignee") || "Shared"),
+      assignee: isChoreAssignee(assignedTo) ? assignedTo : "Nisha",
       completed: editingChore?.completed ?? false,
       ...(editingChore?.completedAt ? { completedAt: editingChore.completedAt } : {})
     };
@@ -2159,6 +2182,19 @@ function Chores() {
         </div>
       </section>
 
+      <section className="rounded-2xl border border-slate-200 bg-white/75 p-4 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/60 sm:p-5" aria-label="Work allocation by responsibility">
+        <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end"><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700 dark:text-teal-200">Roles & responsibility</p><h3 className="mt-1 text-lg font-semibold">Work allocation</h3><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Percentage of all active chores assigned to each family member.</p></div><p className="text-sm font-medium text-slate-500 dark:text-slate-400">{chores.length} chores assigned</p></div>
+        <div className="mt-5 grid gap-3 lg:grid-cols-4">
+          {allocation.map((member) => (
+            <div key={member.name} className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3.5 dark:border-white/10 dark:bg-white/5">
+              <div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold text-white" style={{ backgroundColor: member.color }}>{member.initials}</span><div><p className="text-sm font-semibold">{member.name}</p><p className="text-xs text-slate-500 dark:text-slate-400">{member.role}</p></div></div><p className="text-lg font-semibold tabular-nums">{member.percent}%</p></div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10"><div className="h-full rounded-full transition-all" style={{ width: `${member.percent}%`, backgroundColor: member.color }} /></div>
+              <p className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">{member.total} {member.total === 1 ? "task" : "tasks"}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 dark:border-white/10 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex w-full overflow-x-auto rounded-2xl bg-slate-100 p-1 dark:bg-white/5 lg:w-auto">
           {frequencies.map((frequency) => (
@@ -2186,7 +2222,7 @@ function Chores() {
           </label>
           <select value={assignee} onChange={(event) => setAssignee(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">
             <option value="All">Who: All family</option>
-            {assignees.map((name) => <option key={name} value={name}>{name}</option>)}
+            {assignees.map((member) => <option key={member.name} value={member.name}>{member.name} · {member.role}</option>)}
           </select>
           <select value={category} onChange={(event) => setCategory(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">
             <option value="All">Category: All categories</option>
@@ -2208,6 +2244,7 @@ function Chores() {
           const isOutdoor = chore.category.includes("Outdoor");
           const isKitchen = chore.category.includes("Kitchen");
           const isChildcare = chore.category.includes("Childcare");
+          const responsible = choreFamilyMembers.find((member) => member.name === chore.assignee) ?? choreFamilyMembers[1];
           return (
             <article key={chore.id} className={cn("rounded-2xl border bg-white/80 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-panel dark:bg-slate-950/60", chore.completed ? "border-emerald-200 dark:border-emerald-300/20" : "border-slate-200 dark:border-white/10")}>
               <div className="flex items-center justify-between gap-3">
@@ -2219,9 +2256,9 @@ function Chores() {
                 <div className="min-w-0"><h3 className={cn("font-semibold", chore.completed && "text-slate-400 line-through dark:text-slate-500")}>{chore.title}</h3><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{chore.frequency} · {chore.schedule}</p></div>
               </div>
               <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3 dark:border-white/10">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-700 dark:bg-white/10 dark:text-slate-200">{chore.assignee.slice(0, 2).toUpperCase()}</span>
-                <select aria-label={`Assign ${chore.title}`} value={chore.assignee} onChange={(event) => updateAssignee(chore.id, event.target.value)} className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">
-                  {["Shared", "GM", "Ganesh", "Jiya", "Lakshan", "Feed Jiya"].map((person) => <option key={person} value={person}>{person}</option>)}
+                <span className="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: responsible.color }}>{responsible.initials}</span>
+                <select aria-label={`Responsibility for ${chore.title}`} value={chore.assignee} onChange={(event) => { const value = event.target.value; if (isChoreAssignee(value)) updateAssignee(chore.id, value); }} className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">
+                  {choreFamilyMembers.map((member) => <option key={member.name} value={member.name}>{member.name} · {member.role}</option>)}
                 </select>
                 <button type="button" onClick={() => openEdit(chore)} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-teal-700 dark:hover:bg-white/10 dark:hover:text-teal-200" aria-label={`Edit ${chore.title}`}><Pencil className="h-4 w-4" /></button>
                 <button type="button" onClick={() => deleteChore(chore.id)} className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-300/10 dark:hover:text-rose-200" aria-label={`Delete ${chore.title}`}><Trash2 className="h-4 w-4" /></button>
@@ -2268,7 +2305,7 @@ function ChoreEditorModal({
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input name="chore-schedule" label="Schedule detail" defaultValue={chore?.schedule} placeholder="Every Saturday" />
-            <label className="block text-sm font-medium">Responsible<select name="chore-assignee" defaultValue={chore?.assignee ?? "Shared"} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">{["Shared", "GM", "Ganesh", "Jiya", "Lakshan", "Feed Jiya"].map((person) => <option key={person} value={person}>{person}</option>)}</select></label>
+            <label className="block text-sm font-medium">Responsibility<select name="chore-assignee" defaultValue={chore?.assignee ?? "Nisha"} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">{choreFamilyMembers.map((member) => <option key={member.name} value={member.name}>{member.name} · {member.role}</option>)}</select></label>
           </div>
           <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">Chores are saved automatically on this device and remain here until you delete them.</p>
           <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600"><Check className="h-4 w-4" />{chore ? "Save changes" : "Add chore"}</button>
