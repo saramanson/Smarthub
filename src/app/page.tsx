@@ -675,6 +675,7 @@ function App() {
   const [rewards, setRewards] = useState(seedRewards);
   const [events, setEvents] = useState(seedEvents);
   const [eventsReady, setEventsReady] = useState(false);
+  const [pointsReady, setPointsReady] = useState(false);
   const [transactions, setTransactions] = useState(seedTransactions);
   const [notifications, setNotifications] = useState(seedNotifications);
   const [pantryItems, setPantryItems] = useState(seedPantryItems);
@@ -688,6 +689,7 @@ function App() {
   const [selectedChild, setSelectedChild] = useState("lakhan");
   const [rewardSheetChild, setRewardSheetChild] = useState<RewardSheetChild>("jiya");
   const [rewardToolsOpen, setRewardToolsOpen] = useState(false);
+  const [pointManagerOpen, setPointManagerOpen] = useState(false);
   const [openWebGroups, setOpenWebGroups] = useState<Record<string, boolean>>({});
   const [sidebarWidth, setSidebarWidth] = useState(288);
   const [monthCursor, setMonthCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -730,6 +732,40 @@ function App() {
   useEffect(() => {
     if (eventsReady) window.localStorage.setItem("smart-home-events", JSON.stringify(events));
   }, [events, eventsReady]);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("smart-home-points");
+      if (!saved) return;
+      const parsed: unknown = JSON.parse(saved);
+      if (!parsed || typeof parsed !== "object") return;
+      const pointData = parsed as { children?: unknown; transactions?: unknown };
+      if (Array.isArray(pointData.children)) {
+        const restoredChildren = pointData.children.filter((candidate): candidate is Child => {
+          if (!candidate || typeof candidate !== "object") return false;
+          const child = candidate as Partial<Child>;
+          return typeof child.id === "string" && typeof child.name === "string" && typeof child.role === "string" && typeof child.points === "number" && typeof child.weekly === "number" && typeof child.monthly === "number" && typeof child.streak === "number" && typeof child.color === "string" && Array.isArray(child.badges);
+        });
+        if (restoredChildren.length) setChildren(restoredChildren);
+      }
+      if (Array.isArray(pointData.transactions)) {
+        const restoredTransactions = pointData.transactions.filter((candidate): candidate is Transaction => {
+          if (!candidate || typeof candidate !== "object") return false;
+          const transaction = candidate as Partial<Transaction>;
+          return typeof transaction.id === "string" && typeof transaction.date === "string" && typeof transaction.child === "string" && typeof transaction.activity === "string" && typeof transaction.earned === "number" && typeof transaction.redeemed === "number" && typeof transaction.balance === "number" && typeof transaction.notes === "string";
+        });
+        if (restoredTransactions.length) setTransactions(restoredTransactions);
+      }
+    } catch {
+      window.localStorage.removeItem("smart-home-points");
+    } finally {
+      setPointsReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (pointsReady) window.localStorage.setItem("smart-home-points", JSON.stringify({ children, transactions }));
+  }, [children, pointsReady, transactions]);
 
   const startSidebarResize = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -815,7 +851,7 @@ function App() {
 
   const addPoints = (formData: FormData) => {
     const childId = String(formData.get("child"));
-    const points = Number(formData.get("points") || 0);
+    const points = Math.max(0, Math.round(Number(formData.get("points") || 0)));
     const activity = String(formData.get("activity") || "Custom Activity");
     const notes = String(formData.get("notes") || "");
     const child = children.find((item) => item.id === childId);
@@ -826,6 +862,32 @@ function App() {
       ...current
     ]);
     addNotification("Points added", `${child.name} earned ${points} points for ${activity}.`);
+  };
+
+  const managePoints = (formData: FormData) => {
+    const childId = String(formData.get("manage-child"));
+    const action = String(formData.get("point-action")) === "remove" ? "remove" : "add";
+    const requestedPoints = Math.max(0, Math.round(Number(formData.get("manage-points") || 0)));
+    const reason = String(formData.get("point-reason") || (action === "remove" ? "Missed chore" : "Family contribution"));
+    const notes = String(formData.get("manage-notes") || "").trim();
+    const child = children.find((item) => item.id === childId);
+    if (!child || !requestedPoints) return;
+    const points = action === "remove" ? Math.min(requestedPoints, child.points) : requestedPoints;
+    if (!points) return;
+    const change = action === "remove" ? -points : points;
+    const nextBalance = Math.max(0, child.points + change);
+    setChildren((current) => current.map((item) => item.id === childId ? { ...item, points: nextBalance, weekly: Math.max(0, item.weekly + change), monthly: Math.max(0, item.monthly + change) } : item));
+    setTransactions((current) => [{
+      id: crypto.randomUUID(),
+      date: new Date().toISOString(),
+      child: child.name,
+      activity: action === "remove" ? `Point removal: ${reason}` : `Points added: ${reason}`,
+      earned: action === "add" ? points : 0,
+      redeemed: action === "remove" ? points : 0,
+      balance: nextBalance,
+      notes: notes || (action === "remove" ? `Removed for ${reason}` : `Added for ${reason}`)
+    }, ...current]);
+    addNotification(action === "remove" ? "Points removed" : "Points added", action === "remove" ? `${points} points were removed from ${child.name} for ${reason}.` : `${child.name} received ${points} points for ${reason}.`);
   };
 
   const createEvent = (formData: FormData) => {
@@ -889,13 +951,22 @@ function App() {
                   {item.label}
                 </button>
                 {item.id === "rewards" && activeSection === "rewards" && (
-                  <button
-                    onClick={() => setRewardToolsOpen(true)}
-                    className="ml-10 mt-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Create rewards
-                  </button>
+                  <div className="ml-10 mt-2 space-y-1">
+                    <button
+                      onClick={() => setRewardToolsOpen(true)}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Create rewards
+                    </button>
+                    <button
+                      onClick={() => setPointManagerOpen(true)}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+                    >
+                      <WalletCards className="h-4 w-4" />
+                      Manage points
+                    </button>
+                  </div>
                 )}
                 {item.id === "menu-planner" && (
                   <div className="mt-2 space-y-2">
@@ -1032,6 +1103,7 @@ function App() {
                   setSearch={setSearch}
                   setCategory={setCategory}
                   openRewardTools={() => setRewardToolsOpen(true)}
+                  openPointManager={() => setPointManagerOpen(true)}
                   setSelectedReward={setSelectedReward}
                 />
               )}
@@ -1074,6 +1146,17 @@ function App() {
               setRewardToolsOpen(false);
             }}
             onClose={() => setRewardToolsOpen(false)}
+          />
+        )}
+        {pointManagerOpen && (
+          <ManagePointsModal
+            familyChildren={children}
+            transactions={transactions}
+            managePoints={(formData) => {
+              managePoints(formData);
+              setPointManagerOpen(false);
+            }}
+            onClose={() => setPointManagerOpen(false)}
           />
         )}
         {selectedReward && (
@@ -1413,6 +1496,7 @@ function Rewards({
   setSearch,
   setCategory,
   openRewardTools,
+  openPointManager,
   setSelectedReward
 }: {
   children: Child[];
@@ -1426,18 +1510,26 @@ function Rewards({
   setSearch: (value: string) => void;
   setCategory: (value: string) => void;
   openRewardTools: () => void;
+  openPointManager: () => void;
   setSelectedReward: (reward: Reward) => void;
 }) {
   return (
     <div className="space-y-4">
       <section className="space-y-4">
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-3">
           <button
             onClick={openRewardTools}
             className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white shadow-glow transition hover:-translate-y-0.5 dark:bg-teal-300 dark:text-slate-950"
           >
             <Plus className="h-4 w-4" />
             Create rewards
+          </button>
+          <button
+            onClick={openPointManager}
+            className="inline-flex items-center gap-2 rounded-2xl border border-teal-200 bg-white px-4 py-3 text-sm font-semibold text-teal-800 shadow-sm transition hover:-translate-y-0.5 hover:bg-teal-50 dark:border-teal-300/30 dark:bg-white/5 dark:text-teal-100 dark:hover:bg-teal-300/10"
+          >
+            <WalletCards className="h-4 w-4" />
+            Manage points
           </button>
         </div>
         <RewardWorksheet activeChild={activeSheetChild} setActiveChild={setActiveSheetChild} />
@@ -2979,6 +3071,55 @@ function RewardToolsModal({
               </button>
             </form>
           </section>
+        </div>
+      </motion.section>
+    </motion.div>
+  );
+}
+
+function ManagePointsModal({
+  familyChildren,
+  transactions,
+  managePoints,
+  onClose
+}: {
+  familyChildren: Child[];
+  transactions: Transaction[];
+  managePoints: (formData: FormData) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <div className="absolute inset-0 cursor-default" onClick={onClose} />
+      <motion.section role="dialog" aria-modal="true" aria-labelledby="manage-points-title" initial={{ scale: 0.96, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 12 }} className="relative max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[1.5rem] bg-white p-5 shadow-panel dark:bg-slate-950 sm:p-6">
+        <div className="mb-5 flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">Rewards</p><h2 id="manage-points-title" className="mt-1 text-2xl font-semibold">Manage points</h2><p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Award points for positive actions or remove points for missed chores and misbehavior.</p></div><button type="button" onClick={onClose} className="rounded-full p-2 transition hover:bg-slate-100 dark:hover:bg-white/10" aria-label="Close manage points"><X className="h-5 w-5" /></button></div>
+
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {familyChildren.map((child) => <article key={child.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5"><div className="flex items-center gap-2.5"><span className={cn("flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold", child.color)}>{child.name.slice(0, 1)}</span><div><p className="text-sm font-semibold">{child.name}</p><p className="text-xs text-slate-500 dark:text-slate-400">Current balance</p></div></div><p className="mt-3 text-2xl font-semibold tabular-nums">{child.points}</p></article>)}
+        </section>
+
+        <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_0.9fr]">
+          <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+            <h3 className="text-lg font-semibold">Record a point change</h3>
+            <form action={managePoints} className="mt-4 space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-sm font-medium">Action<select name="point-action" defaultValue="remove" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-slate-900"><option value="add">Add points</option><option value="remove">Remove points</option></select></label>
+                <label className="block text-sm font-medium">Child<select name="manage-child" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-slate-900">{familyChildren.map((child) => <option key={child.id} value={child.id}>{child.name} · {child.points} pts</option>)}</select></label>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2"><Input name="manage-points" label="Point amount" type="number" placeholder="10" /><label className="block text-sm font-medium">Reason<select name="point-reason" defaultValue="Missed chore" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-slate-900"><option>Missed chore</option><option>Misbehavior</option><option>Repeated reminder</option><option>Helpful contribution</option><option>Great behavior</option><option>Other</option></select></label></div>
+              <Input name="manage-notes" label="Notes" placeholder="What happened? (optional)" />
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900 dark:border-amber-300/25 dark:bg-amber-300/10 dark:text-amber-100">Removed points cannot exceed the child’s current balance, so balances never go below zero.</p>
+              <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-teal-300 dark:text-slate-950"><WalletCards className="h-4 w-4" />Save point change</button>
+            </form>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/5"><div className="flex items-center justify-between gap-3"><h3 className="text-lg font-semibold">Recent point activity</h3><span className="text-xs font-medium text-slate-500 dark:text-slate-400">{transactions.length} records</span></div><div className="mt-4 space-y-3">{transactions.slice(0, 6).map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3 text-sm dark:bg-white/5"><div className="min-w-0"><p className="truncate font-semibold">{item.child}</p><p className="truncate text-xs text-slate-500 dark:text-slate-400">{item.activity}</p></div><div className="text-right"><p className={cn("font-semibold", item.earned ? "text-emerald-600" : "text-rose-500")}>{item.earned ? `+${item.earned}` : `-${item.redeemed}`}</p><p className="text-xs text-slate-500 dark:text-slate-400">Balance {item.balance}</p></div></div>)}</div></section>
         </div>
       </motion.section>
     </motion.div>
