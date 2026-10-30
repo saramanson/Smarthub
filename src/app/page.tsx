@@ -674,6 +674,7 @@ function App() {
   const [children, setChildren] = useState(seedChildren);
   const [rewards, setRewards] = useState(seedRewards);
   const [events, setEvents] = useState(seedEvents);
+  const [eventsReady, setEventsReady] = useState(false);
   const [transactions, setTransactions] = useState(seedTransactions);
   const [notifications, setNotifications] = useState(seedNotifications);
   const [pantryItems, setPantryItems] = useState(seedPantryItems);
@@ -706,6 +707,29 @@ function App() {
     if (!("serviceWorker" in navigator)) return;
     void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("smart-home-events");
+      if (!saved) return;
+      const parsed: unknown = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return;
+      const restored = parsed.filter((candidate): candidate is FamilyEvent => {
+        if (!candidate || typeof candidate !== "object") return false;
+        const event = candidate as Partial<FamilyEvent>;
+        return typeof event.id === "string" && typeof event.title === "string" && typeof event.description === "string" && typeof event.date === "string" && typeof event.start === "string" && typeof event.end === "string" && typeof event.location === "string" && typeof event.category === "string" && Array.isArray(event.assigned) && typeof event.color === "string" && typeof event.reminder === "string";
+      });
+      if (restored.length) setEvents(restored);
+    } catch {
+      window.localStorage.removeItem("smart-home-events");
+    } finally {
+      setEventsReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (eventsReady) window.localStorage.setItem("smart-home-events", JSON.stringify(events));
+  }, [events, eventsReady]);
 
   const startSidebarResize = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -3080,6 +3104,36 @@ function Calendar({
   const monthLabel = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(monthCursor);
   const visibleEvents = [...events].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const dayEvents = visibleEvents.filter((event) => new Date(event.date).toDateString() === new Date().toDateString());
+  const [editingEvent, setEditingEvent] = useState<FamilyEvent | null>(null);
+
+  const updateEvent = (formData: FormData) => {
+    if (!editingEvent) return;
+    const title = String(formData.get("event-title") || editingEvent.title).trim() || editingEvent.title;
+    const date = String(formData.get("event-date") || dateInputValue(editingEvent.date));
+    const start = String(formData.get("event-start") || timeInputValue(editingEvent.start));
+    const end = String(formData.get("event-end") || timeInputValue(editingEvent.end));
+    const nextEvent: FamilyEvent = {
+      ...editingEvent,
+      title,
+      description: String(formData.get("event-description") || ""),
+      date: new Date(`${date}T${start}:00`).toISOString(),
+      start: timeToLabel(start),
+      end: timeToLabel(end),
+      location: String(formData.get("event-location") || "Home"),
+      category: String(formData.get("event-category") || "Family"),
+      assigned: String(formData.get("event-assigned") || "").split(",").map((item) => item.trim()).filter(Boolean),
+      color: String(formData.get("event-color") || "bg-teal-500"),
+      reminder: String(formData.get("event-reminder") || "1 hour")
+    };
+    setEvents((current) => current.map((event) => event.id === editingEvent.id ? nextEvent : event));
+    setEditingEvent(null);
+  };
+
+  const deleteEvent = (event: FamilyEvent) => {
+    if (!window.confirm(`Delete “${event.title}” from the family calendar?`)) return;
+    setEvents((current) => current.filter((item) => item.id !== event.id));
+    setEditingEvent((current) => current?.id === event.id ? null : current);
+  };
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
@@ -3140,7 +3194,7 @@ function Calendar({
           {view !== "month" && (
             <div className="mt-5 space-y-3">
               {(view === "day" ? dayEvents : visibleEvents.slice(0, view === "week" ? 7 : 12)).map((event) => (
-                <EventDetail key={event.id} event={event} setEvents={setEvents} />
+                <EventDetail key={event.id} event={event} onEdit={() => setEditingEvent(event)} onDelete={() => deleteEvent(event)} />
               ))}
             </div>
           )}
@@ -3192,7 +3246,22 @@ function Calendar({
             ))}
           </div>
         </Panel>
+        <Panel title="Manage events">
+          <p className="mb-3 text-xs leading-5 text-slate-500 dark:text-slate-400">Edit an event’s details or remove it from the calendar.</p>
+          <div className="max-h-[24rem] space-y-2 overflow-y-auto pr-1">
+            {visibleEvents.map((event) => (
+              <article key={event.id} className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/70 p-3 dark:border-white/10 dark:bg-white/5">
+                <span className={cn("h-9 w-1 shrink-0 rounded-full", event.color)} />
+                <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{event.title}</p><p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{formatDate(event.date)} · {event.start}</p></div>
+                <button type="button" onClick={() => setEditingEvent(event)} className="rounded-lg p-2 text-slate-500 transition hover:bg-teal-50 hover:text-teal-700 dark:hover:bg-teal-300/10 dark:hover:text-teal-200" aria-label={`Edit ${event.title}`}><Pencil className="h-4 w-4" /></button>
+                <button type="button" onClick={() => deleteEvent(event)} className="rounded-lg p-2 text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-300/10 dark:hover:text-rose-200" aria-label={`Delete ${event.title}`}><Trash2 className="h-4 w-4" /></button>
+              </article>
+            ))}
+            {visibleEvents.length === 0 && <p className="rounded-2xl border border-dashed border-slate-300 px-3 py-6 text-center text-sm text-slate-500 dark:border-white/15 dark:text-slate-400">No events to manage.</p>}
+          </div>
+        </Panel>
       </aside>
+      <AnimatePresence>{editingEvent && <EventEditorModal event={editingEvent} onClose={() => setEditingEvent(null)} onSave={updateEvent} />}</AnimatePresence>
     </div>
   );
 }
@@ -3304,14 +3373,7 @@ function EventRow({ event }: { event: FamilyEvent }) {
   );
 }
 
-function EventDetail({ event, setEvents }: { event: FamilyEvent; setEvents: React.Dispatch<React.SetStateAction<FamilyEvent[]>> }) {
-  const duplicate = () =>
-    setEvents((current) => [
-      { ...event, id: crypto.randomUUID(), title: `${event.title} copy`, date: isoDay(7, new Date(event.date).getHours(), new Date(event.date).getMinutes()) },
-      ...current
-    ]);
-  const remove = () => setEvents((current) => current.filter((item) => item.id !== event.id));
-
+function EventDetail({ event, onEdit, onDelete }: { event: FamilyEvent; onEdit: () => void; onDelete: () => void }) {
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/5">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
@@ -3330,15 +3392,46 @@ function EventDetail({ event, setEvents }: { event: FamilyEvent; setEvents: Reac
           </div>
         </div>
         <div className="flex gap-2">
-          <button onClick={duplicate} className="rounded-full border border-slate-200 p-2 dark:border-white/10" aria-label="Duplicate event">
-            <Copy className="h-4 w-4" />
+          <button onClick={onEdit} className="rounded-full border border-slate-200 p-2 text-teal-700 transition hover:bg-teal-50 dark:border-white/10 dark:text-teal-200 dark:hover:bg-teal-300/10" aria-label={`Edit ${event.title}`}>
+            <Pencil className="h-4 w-4" />
           </button>
-          <button onClick={remove} className="rounded-full border border-slate-200 p-2 text-rose-500 dark:border-white/10" aria-label="Delete event">
+          <button onClick={onDelete} className="rounded-full border border-slate-200 p-2 text-rose-500 transition hover:bg-rose-50 dark:border-white/10 dark:hover:bg-rose-300/10" aria-label={`Delete ${event.title}`}>
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </div>
     </article>
+  );
+}
+
+function EventEditorModal({ event, onClose, onSave }: { event: FamilyEvent; onClose: () => void; onSave: (formData: FormData) => void }) {
+  useEffect(() => {
+    const closeOnEscape = (keyboardEvent: KeyboardEvent) => { if (keyboardEvent.key === "Escape") onClose(); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <div className="absolute inset-0" onClick={onClose} />
+      <motion.section role="dialog" aria-modal="true" aria-labelledby="event-editor-title" initial={{ scale: 0.96, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 12 }} className="relative max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-[1.5rem] bg-white p-5 shadow-panel dark:bg-slate-950 sm:p-6">
+        <div className="mb-5 flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">Calendar</p><h2 id="event-editor-title" className="mt-1 text-2xl font-semibold">Edit event</h2></div><button type="button" onClick={onClose} className="rounded-full p-2 transition hover:bg-slate-100 dark:hover:bg-white/10" aria-label="Close event editor"><X className="h-5 w-5" /></button></div>
+        <form action={onSave} className="space-y-3">
+          <Input name="event-title" label="Event title" defaultValue={event.title} placeholder="Piano lesson" />
+          <Input name="event-description" label="Description" defaultValue={event.description} placeholder="Bring lesson book" />
+          <Input name="event-date" label="Date" type="date" defaultValue={dateInputValue(event.date)} />
+          <div className="grid grid-cols-2 gap-3"><Input name="event-start" label="Start" type="time" defaultValue={timeInputValue(event.start)} /><Input name="event-end" label="End" type="time" defaultValue={timeInputValue(event.end)} /></div>
+          <Input name="event-location" label="Location" defaultValue={event.location} placeholder="Community center" />
+          <Input name="event-assigned" label="Assigned members" defaultValue={event.assigned.join(", ")} placeholder="Lakshan, Jiya" />
+          <div className="grid grid-cols-2 gap-3">
+            <Input name="event-category" label="Category" defaultValue={event.category} placeholder="School" />
+            <label className="block text-sm font-medium">Reminder<select name="event-reminder" defaultValue={event.reminder} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">{["15 minutes", "1 hour", "1 day", "1 week"].map((item) => <option key={item}>{item}</option>)}</select></label>
+          </div>
+          <label className="block text-sm font-medium">Color category<select name="event-color" defaultValue={event.color} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">{["bg-sky-500", "bg-emerald-500", "bg-violet-500", "bg-amber-500", "bg-rose-500"].map((item) => <option value={item} key={item}>{item.replace("bg-", "").replace("-500", "")}</option>)}</select></label>
+          <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={onClose} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold transition hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/10">Cancel</button><button className="inline-flex items-center gap-2 rounded-2xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-600"><Save className="h-4 w-4" />Save event</button></div>
+        </form>
+      </motion.section>
+    </motion.div>
   );
 }
 
@@ -3358,4 +3451,21 @@ function timeToLabel(time: string) {
   const date = new Date();
   date.setHours(Number(hourString), Number(minuteString || 0), 0, 0);
   return formatTime(date);
+}
+
+function dateInputValue(isoDate: string) {
+  const date = new Date(isoDate);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function timeInputValue(label: string) {
+  const match = label.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return "09:00";
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (match[3].toUpperCase() === "PM" && hour !== 12) hour += 12;
+  if (match[3].toUpperCase() === "AM" && hour === 12) hour = 0;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
