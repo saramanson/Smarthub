@@ -511,6 +511,7 @@ const householdInventorySeed: ReadonlyArray<readonly [boolean, string, string, n
 
 const expenseCategories = [
   "Grocery",
+  "Dine out",
   "Gas",
   "Clothing",
   "Medicine",
