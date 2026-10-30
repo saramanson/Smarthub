@@ -1,42 +1,27 @@
-# Family Rewards & Calendar
+# Smarthub
 
-A premium family management web application focused only on rewards and calendar workflows.
+Family rewards, calendar, chores, supplies, expenses, and menu planning.
 
-## What is included
+Source: https://github.com/saramanson/Smarthub (main).
+Vercel project: smarthub in team lj-ff0c. Git pushes deploy through the linked Vercel project.
+Neon project: shy-moon-41911951, supplied through the Vercel Marketplace integration.
 
-- Next.js 15 App Router, React 19, TypeScript, Tailwind CSS
-- Supabase client scaffold and full PostgreSQL schema with RLS policies
-- Responsive dashboard with light and dark mode
-- Rewards module with search, filters, reward creation, point awards, redemption modal, history, leaderboard, badges, streaks, and notifications
-- Calendar module with month, week, day, and agenda views, event creation, reminders, categories, duplication, deletion, and drag-and-drop date changes in month view
-- Auth pages for sign in, sign up, forgot password, and reset password
-- Static export support for hosting, plus Vercel-compatible project structure
+## Development
 
-## Local development
+Use Node 24, `npm ci`, `npm run dev`. Copy `.env.example` into `.env.local` and supply development branch credentials. Keep secrets out of Git. Run `npm run typecheck` and `npm run build`.
 
-```bash
-pnpm install
-pnpm dev
-```
+## Storage and access
 
-Open `http://localhost:3000`.
+The authenticated Next.js API stores module records as versioned JSONB documents in Neon. Database credentials stay on the server. Verified emails must appear in the server-only FAMILY_ALLOWED_EMAILS comma-separated allowlist. All approved members share this one family workspace. Concurrent stale writes are rejected instead of silently overwriting another device. A failed save pauses editing and offers backup export. Refresh to load another device's changes.
 
-## Supabase setup
+Schema: `db/001_family_documents.sql`. Test on an isolated Neon branch before production. The old Supabase schema is historical and unused.
 
-1. Create a Supabase project.
-2. Run `supabase/schema.sql` in the Supabase SQL editor.
-3. Copy `.env.example` to `.env.local`.
-4. Fill in `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-5. Configure Email and Google providers in Supabase Auth.
+## Moving old records
+
+The original site uses browser-local storage. Visit `/migration` for the exporter and import the resulting JSON through the dashboard. Repeat on each device. Imports replace matching modules; retain backups and reconcile differing module versions before importing. Unsaved records cannot be recovered from closed pages. Migration is complete only after all source-device backups have been imported and checked.
 
 ## Deployment
 
-For Vercel, import this folder as a Next.js project and add the two Supabase environment variables.
+Vercel builds main automatically. Use Git branches for review. Preview deployments require an isolated Neon database/auth branch and allowlisted auth origin before testing real data. Do not point previews at production family records.
 
-For static hosting, run:
-
-```bash
-pnpm build
-```
-
-The static export is emitted to `out/`.
+Create an account, verify your email, and sign in. Configure custom SMTP in Neon for production password reset links. ChatGPT site sessions do not transfer.

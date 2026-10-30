@@ -13,6 +13,7 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   const requestUrl = new URL(event.request.url);
   if (requestUrl.origin !== self.location.origin) return;
+  if (requestUrl.pathname.startsWith("/api/") || event.request.mode === "navigate") return;
 
   if (event.request.mode === "navigate") {
     event.respondWith(fetch(event.request).then((response) => {

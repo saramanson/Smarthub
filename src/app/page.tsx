@@ -53,6 +53,9 @@ import {
   WalletCards,
   X
 } from "lucide-react";
+import { uploadBill, downloadBill } from "@/lib/bills";
+import { CloudGate } from "@/components/cloud-gate";
+import { cloudStorage } from "@/lib/cloud-storage";
 import { cn, formatDate, formatTime } from "@/lib/utils";
 
 type Child = {
@@ -176,61 +179,13 @@ function isSupportedBillFile(file: File) {
   return file.type === "application/pdf" || file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|pdf)$/i.test(file.name);
 }
 
-function openExpenseBillDatabase() {
-  return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = window.indexedDB.open(expenseBillDatabaseName, 1);
-    request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains(expenseBillStoreName)) request.result.createObjectStore(expenseBillStoreName);
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("Could not open bill storage."));
-  });
-}
-
 async function saveExpenseBill(file: File): Promise<BillAttachment> {
   const attachment: BillAttachment = { id: crypto.randomUUID(), name: file.name, type: file.type || "application/octet-stream", size: file.size, addedAt: new Date().toISOString() };
-  const database = await openExpenseBillDatabase();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const transaction = database.transaction(expenseBillStoreName, "readwrite");
-      transaction.objectStore(expenseBillStoreName).put(file, attachment.id);
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error ?? new Error("Could not save bill attachment."));
-      transaction.onabort = () => reject(transaction.error ?? new Error("Could not save bill attachment."));
-    });
-    return attachment;
-  } finally {
-    database.close();
-  }
+  await uploadBill(attachment.id, file);
+  return attachment;
 }
-
-async function readExpenseBill(id: string) {
-  const database = await openExpenseBillDatabase();
-  try {
-    return await new Promise<Blob | null>((resolve, reject) => {
-      const request = database.transaction(expenseBillStoreName, "readonly").objectStore(expenseBillStoreName).get(id);
-      request.onsuccess = () => resolve(request.result instanceof Blob ? request.result : null);
-      request.onerror = () => reject(request.error ?? new Error("Could not read bill attachment."));
-    });
-  } finally {
-    database.close();
-  }
-}
-
-async function deleteExpenseBill(id: string) {
-  const database = await openExpenseBillDatabase();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const transaction = database.transaction(expenseBillStoreName, "readwrite");
-      transaction.objectStore(expenseBillStoreName).delete(id);
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error ?? new Error("Could not delete bill attachment."));
-      transaction.onabort = () => reject(transaction.error ?? new Error("Could not delete bill attachment."));
-    });
-  } finally {
-    database.close();
-  }
-}
+async function readExpenseBill(id: string) { return downloadBill(id); }
+async function deleteExpenseBill(_id: string) { /* Keep receipts for recovery when an expense is removed. */ }
 
 type MenuMeal = {
   id: string;
@@ -675,13 +630,13 @@ function App() {
   const [activeSection, setActiveSection] = useState<Section>("dashboard");
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [children, setChildren] = useState(seedChildren);
-  const [rewards, setRewards] = useState(seedRewards);
+  const [rewards, setRewards] = useState<Reward[]>(() => JSON.parse(cloudStorage.getItem("smart-home-rewards") || "null") ?? seedRewards);
   const [events, setEvents] = useState(seedEvents);
   const [eventsReady, setEventsReady] = useState(false);
   const [pointsReady, setPointsReady] = useState(false);
   const [transactions, setTransactions] = useState(seedTransactions);
-  const [notifications, setNotifications] = useState(seedNotifications);
-  const [pantryItems, setPantryItems] = useState(seedPantryItems);
+  const [notifications, setNotifications] = useState<typeof seedNotifications>(() => JSON.parse(cloudStorage.getItem("smart-home-notifications") || "null") ?? seedNotifications);
+  const [pantryItems, setPantryItems] = useState<PantryItem[]>(() => JSON.parse(cloudStorage.getItem("smart-home-supplies") || "null") ?? seedPantryItems);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [menuMeals, setMenuMeals] = useState(seedMenuMeals);
   const [menuSides, setMenuSides] = useState(seedMenuSides);
@@ -717,7 +672,7 @@ function App() {
 
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem("smart-home-events");
+      const saved = cloudStorage.getItem("smart-home-events");
       if (!saved) return;
       const parsed: unknown = JSON.parse(saved);
       if (!Array.isArray(parsed)) return;
@@ -726,21 +681,21 @@ function App() {
         const event = candidate as Partial<FamilyEvent>;
         return typeof event.id === "string" && typeof event.title === "string" && typeof event.description === "string" && typeof event.date === "string" && typeof event.start === "string" && typeof event.end === "string" && typeof event.location === "string" && typeof event.category === "string" && Array.isArray(event.assigned) && typeof event.color === "string" && typeof event.reminder === "string";
       });
-      if (restored.length) setEvents(restored);
+      setEvents(restored);
     } catch {
-      window.localStorage.removeItem("smart-home-events");
+      cloudStorage.removeItem("smart-home-events");
     } finally {
       setEventsReady(true);
     }
   }, []);
 
   useEffect(() => {
-    if (eventsReady) window.localStorage.setItem("smart-home-events", JSON.stringify(events));
+    if (eventsReady) cloudStorage.setItem("smart-home-events", JSON.stringify(events));
   }, [events, eventsReady]);
 
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem("smart-home-points");
+      const saved = cloudStorage.getItem("smart-home-points");
       if (!saved) return;
       const parsed: unknown = JSON.parse(saved);
       if (!parsed || typeof parsed !== "object") return;
@@ -762,15 +717,19 @@ function App() {
         if (restoredTransactions.length) setTransactions(restoredTransactions);
       }
     } catch {
-      window.localStorage.removeItem("smart-home-points");
+      cloudStorage.removeItem("smart-home-points");
     } finally {
       setPointsReady(true);
     }
   }, []);
 
   useEffect(() => {
-    if (pointsReady) window.localStorage.setItem("smart-home-points", JSON.stringify({ children, transactions }));
+    if (pointsReady) cloudStorage.setItem("smart-home-points", JSON.stringify({ children, transactions }));
   }, [children, pointsReady, transactions]);
+
+  useEffect(() => { cloudStorage.setItem("smart-home-rewards", JSON.stringify(rewards)); }, [rewards]);
+  useEffect(() => { cloudStorage.setItem("smart-home-notifications", JSON.stringify(notifications)); }, [notifications]);
+  useEffect(() => { cloudStorage.setItem("smart-home-supplies", JSON.stringify(pantryItems)); }, [pantryItems]);
 
   const startSidebarResize = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -1053,7 +1012,7 @@ function App() {
             </div>
             <div className="flex items-center gap-2">
               <PwaInstallButton />
-              <a href="/signin-with-chatgpt?return_to=%2F" target="_top" className="hidden rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white sm:inline-flex">
+              <a href="/sign-in" target="_top" className="hidden rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white sm:inline-flex">
                 Sign in
               </a>
               <button
@@ -1236,7 +1195,7 @@ function App() {
 export default function Page() {
   return (
     <QueryClientProvider client={queryClient}>
-      <App />
+      <CloudGate><App /></CloudGate>
     </QueryClientProvider>
   );
 }
@@ -1675,7 +1634,7 @@ function MenuPlanner({
 
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem("smart-home-menu-planner");
+      const saved = cloudStorage.getItem("smart-home-menu-planner");
       if (saved) {
         const parsed: unknown = JSON.parse(saved);
         if (parsed && typeof parsed === "object") {
@@ -1686,7 +1645,7 @@ function MenuPlanner({
               const meal = candidate as Record<string, unknown>;
               return typeof meal.id === "string" && typeof meal.day === "number" && typeof meal.slot === "string" && typeof meal.name === "string" && typeof meal.isVeg === "boolean";
             });
-            if (restoredMeals.length) setMeals(restoredMeals);
+            setMeals(restoredMeals);
           }
           if (Array.isArray(savedPlanner.sides)) {
             const restoredSides = savedPlanner.sides.filter((candidate): candidate is MenuSide => {
@@ -1694,22 +1653,22 @@ function MenuPlanner({
               const side = candidate as Record<string, unknown>;
               return typeof side.id === "string" && typeof side.day === "number" && typeof side.label === "string" && typeof side.name === "string";
             });
-            if (restoredSides.length) {
+            if (Array.isArray(savedPlanner.sides)) {
               const restoredIds = new Set(restoredSides.map((side) => side.id));
-              setSides([...restoredSides, ...seedMenuSides.filter((side) => !restoredIds.has(side.id))]);
+              setSides(restoredSides);
             }
           }
         }
       }
     } catch {
-      window.localStorage.removeItem("smart-home-menu-planner");
+      cloudStorage.removeItem("smart-home-menu-planner");
     } finally {
       setStorageReady(true);
     }
   }, [setMeals, setSides]);
 
   useEffect(() => {
-    if (storageReady) window.localStorage.setItem("smart-home-menu-planner", JSON.stringify({ meals, sides }));
+    if (storageReady) cloudStorage.setItem("smart-home-menu-planner", JSON.stringify({ meals, sides }));
   }, [meals, sides, storageReady]);
 
   const searchTerm = search.trim().toLowerCase();
@@ -1731,7 +1690,7 @@ function MenuPlanner({
     const nextMeal: MenuMeal = { id: existing?.id ?? crypto.randomUUID(), day, slot, name, isVeg, ...(swapSuggestion ? { swapSuggestion } : {}) };
     setMeals((current) => existing ? current.map((meal) => meal.id === existing.id ? nextMeal : meal) : [...current, nextMeal]);
     setMealEditor(null);
-    setNotice(existing ? "Meal updated and saved on this device." : "Meal added and saved on this device.");
+    setNotice(existing ? "Meal updated and saved to cloud." : "Meal added and saved to cloud.");
   };
 
   const saveSide = (formData: FormData, existing: MenuSide | null) => {
@@ -1742,19 +1701,19 @@ function MenuPlanner({
     const nextSide: MenuSide = { id: existing?.id ?? crypto.randomUUID(), day: activeDay, label, name, ...(note ? { note } : {}) };
     setSides((current) => existing ? current.map((side) => side.id === existing.id ? nextSide : side) : [...current, nextSide]);
     setSideEditor(null);
-    setNotice(existing ? "Side pairing updated and saved on this device." : "Side pairing added and saved on this device.");
+    setNotice(existing ? "Side pairing updated and saved to cloud." : "Side pairing added and saved to cloud.");
   };
 
   const applySwap = (meal: MenuMeal) => {
     if (!meal.swapSuggestion) return;
     setMeals((current) => current.map((item) => item.id === meal.id ? { ...item, name: meal.swapSuggestion ?? item.name, swapSuggestion: undefined } : item));
-    setNotice("Healthy swap applied and saved on this device.");
+    setNotice("Healthy swap applied and saved to cloud.");
   };
 
   const applyAllSwaps = () => {
     if (!flaggedMeals) return;
     setMeals((current) => current.map((meal) => meal.swapSuggestion ? { ...meal, name: meal.swapSuggestion, swapSuggestion: undefined } : meal));
-    setNotice(`${flaggedMeals} healthier swap${flaggedMeals === 1 ? "" : "s"} applied and saved on this device.`);
+    setNotice(`${flaggedMeals} healthier swap${flaggedMeals === 1 ? "" : "s"} applied and saved to cloud.`);
   };
 
   const moveDay = (offset: number) => setActiveDay((current) => (current + offset + menuDays.length) % menuDays.length);
@@ -1844,7 +1803,7 @@ function ExpenseTracker({
 
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem("smart-home-expenses");
+      const saved = cloudStorage.getItem("smart-home-expenses");
       if (saved) {
         const parsed: unknown = JSON.parse(saved);
         if (Array.isArray(parsed)) {
@@ -1855,18 +1814,18 @@ function ExpenseTracker({
             const hasValidBill = bill === undefined || (Boolean(bill) && typeof bill === "object" && typeof (bill as Record<string, unknown>).id === "string" && typeof (bill as Record<string, unknown>).name === "string" && typeof (bill as Record<string, unknown>).type === "string" && typeof (bill as Record<string, unknown>).size === "number" && typeof (bill as Record<string, unknown>).addedAt === "string");
             return typeof expense.id === "string" && typeof expense.date === "string" && typeof expense.description === "string" && typeof expense.category === "string" && typeof expense.amount === "number" && hasValidBill;
           });
-          if (restored.length) setItems(restored);
+          setItems(restored);
         }
       }
     } catch {
-      window.localStorage.removeItem("smart-home-expenses");
+      cloudStorage.removeItem("smart-home-expenses");
     } finally {
       setStorageReady(true);
     }
   }, [setItems]);
 
   useEffect(() => {
-    if (storageReady) window.localStorage.setItem("smart-home-expenses", JSON.stringify(items));
+    if (storageReady) cloudStorage.setItem("smart-home-expenses", JSON.stringify(items));
   }, [items, storageReady]);
 
   const visibleItems = useMemo(() => {
@@ -1930,7 +1889,7 @@ function ExpenseTracker({
       try {
         bill = await saveExpenseBill(billFile);
       } catch {
-        setNotice("The bill could not be stored on this device. Please try a smaller file.");
+        setNotice("The bill could not be uploaded. Check your connection and try again.");
         return;
       }
     }
@@ -1938,10 +1897,10 @@ function ExpenseTracker({
     if (editingExpense) {
       setItems((current) => current.map((item) => (item.id === editingExpense.id ? nextExpense : item)));
       if (billFile && editingExpense.bill) void deleteExpenseBill(editingExpense.bill.id);
-      setNotice("Expense updated and saved on this device.");
+      setNotice("Expense updated and saved to cloud.");
     } else {
       setItems((current) => [nextExpense, ...current]);
-      setNotice("Expense added and saved on this device.");
+      setNotice("Expense added and saved to cloud.");
     }
     setEditorOpen(false);
     setEditingExpense(null);
@@ -1968,7 +1927,7 @@ function ExpenseTracker({
     const copy = { ...copySource, id: crypto.randomUUID(), description: `${original.description} (copy)` };
     setItems((current) => [copy, ...current]);
     setSelectedIds([copy.id]);
-    setNotice("Expense copied and saved on this device.");
+    setNotice("Expense copied and saved to cloud.");
   };
 
   const deleteSelected = () => {
@@ -2010,7 +1969,7 @@ function ExpenseTracker({
     try {
       const file = await readExpenseBill(bill.id);
       if (!file) {
-        setNotice("This bill attachment is unavailable on this device.");
+        setNotice("This bill attachment has not been migrated yet. Import the backup from its original device.");
         return;
       }
       const url = URL.createObjectURL(file);
@@ -2032,7 +1991,7 @@ function ExpenseTracker({
         <PantryMetric label="Total spend" value={currency.format(totalSpend)} detail="All saved expenses" icon={WalletCards} tone="bg-rose-100 text-rose-700 dark:bg-rose-300/15 dark:text-rose-200" />
         <PantryMetric label="This week" value={currency.format(weekSpend)} detail="Last 7 days" icon={TrendingUp} tone="bg-amber-100 text-amber-700 dark:bg-amber-300/15 dark:text-amber-200" />
         <PantryMetric label="This month" value={currency.format(monthSpend)} detail="Current calendar month" icon={CalendarDays} tone="bg-sky-100 text-sky-700 dark:bg-sky-300/15 dark:text-sky-200" />
-        <PantryMetric label="Transactions" value={items.length.toLocaleString()} detail="Saved on this device" icon={ListChecks} tone="bg-teal-100 text-teal-700 dark:bg-teal-300/15 dark:text-teal-200" />
+        <PantryMetric label="Transactions" value={items.length.toLocaleString()} detail="Saved to cloud" icon={ListChecks} tone="bg-teal-100 text-teal-700 dark:bg-teal-300/15 dark:text-teal-200" />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -2101,7 +2060,7 @@ function ExpenseTracker({
               <button onClick={copySelected} disabled={selectedIds.length !== 1} className={cn("inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition", selectedIds.length === 1 ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10" : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-slate-600")}><Copy className="h-4 w-4" />Copy</button>
               <button onClick={deleteSelected} disabled={!selectedIds.length} className={cn("inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition", selectedIds.length ? "border-rose-300 bg-white text-rose-700 hover:bg-rose-50 dark:border-rose-300/30 dark:bg-white/5 dark:text-rose-200 dark:hover:bg-rose-300/10" : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-slate-600")}><Trash2 className="h-4 w-4" />Delete</button>
               <button onClick={editSelected} disabled={selectedIds.length !== 1} className={cn("inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition", selectedIds.length === 1 ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10" : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-slate-600")}><Pencil className="h-4 w-4" />Edit</button>
-              <button onClick={() => { window.localStorage.setItem("smart-home-expenses", JSON.stringify(items)); setNotice("Expenses saved on this device."); }} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-600"><Save className="h-4 w-4" />Save</button>
+              <button onClick={() => { cloudStorage.setItem("smart-home-expenses", JSON.stringify(items)); setNotice("Expenses queued for cloud saving."); }} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-600"><Save className="h-4 w-4" />Save</button>
             </div>
           </div>
           {notice && <p className="border-t border-slate-200 px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:text-slate-300">{notice}</p>}
@@ -2199,7 +2158,7 @@ function Chores() {
 
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem("smart-home-chores");
+      const saved = cloudStorage.getItem("smart-home-chores");
       if (saved) {
         const parsed: unknown = JSON.parse(saved);
         if (Array.isArray(parsed)) {
@@ -2212,18 +2171,18 @@ function Chores() {
             assignee: isChoreAssignee(item.assignee) ? item.assignee : seedChoreResponsibilities.get(item.title) ?? "Nisha",
             completed: Boolean(item.completed)
           }));
-          if (restored.length) setChores(restored);
+          setChores(restored);
         }
       }
     } catch {
-      window.localStorage.removeItem("smart-home-chores");
+      cloudStorage.removeItem("smart-home-chores");
     } finally {
       setStorageReady(true);
     }
   }, []);
 
   useEffect(() => {
-    if (storageReady) window.localStorage.setItem("smart-home-chores", JSON.stringify(chores));
+    if (storageReady) cloudStorage.setItem("smart-home-chores", JSON.stringify(chores));
   }, [chores, storageReady]);
 
   const frequencies: readonly (ChoreFrequency | "All")[] = ["Daily", "Weekly", "Monthly", "Annual", "All"];
@@ -2443,7 +2402,7 @@ function ChoreEditorModal({
             <Input name="chore-schedule" label="Schedule detail" defaultValue={chore?.schedule} placeholder="Every Saturday" />
             <label className="block text-sm font-medium">Responsibility<select name="chore-assignee" defaultValue={chore?.assignee ?? "Nisha"} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">{choreFamilyMembers.map((member) => <option key={member.name} value={member.name}>{member.name} · {member.role}</option>)}</select></label>
           </div>
-          <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">Chores are saved automatically on this device and remain here until you delete them.</p>
+          <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">Chores are saved automatically to your family database.</p>
           <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600"><Check className="h-4 w-4" />{chore ? "Save changes" : "Add chore"}</button>
         </form>
       </motion.section>
@@ -2503,7 +2462,7 @@ function Pantry({
     if (savedSuppliesLoaded.current) return;
     savedSuppliesLoaded.current = true;
     try {
-      const saved = window.localStorage.getItem("smart-home-supplies");
+      const saved = cloudStorage.getItem("smart-home-supplies");
       if (!saved) return;
       const parsed: unknown = JSON.parse(saved);
       if (!Array.isArray(parsed)) return;
@@ -2512,12 +2471,12 @@ function Pantry({
         const item = candidate as Record<string, unknown>;
         return typeof item.id === "string" && typeof item.purchased === "boolean" && typeof item.category === "string" && typeof item.name === "string" && typeof item.quantity === "number" && typeof item.unit === "string" && typeof item.unitPrice === "number";
       });
-      if (restored.length) {
+      if (Array.isArray(parsed)) {
         const restoredIds = new Set(restored.map((item) => item.id));
-        setItems([...restored, ...seedPantryItems.filter((item) => !restoredIds.has(item.id))]);
+        setItems(restored);
       }
     } catch {
-      window.localStorage.removeItem("smart-home-supplies");
+      cloudStorage.removeItem("smart-home-supplies");
     }
   }, [setItems]);
 
@@ -2544,7 +2503,7 @@ function Pantry({
     setItems((current) => current.map((item) => (item.id === id ? { ...item, quantity, unit, unitPrice } : item)));
     setEditingItem(null);
     setIsDirty(true);
-    setNotice("Supply item updated. Select Save to keep this version on this device.");
+    setNotice("Supply item updated. Changes are saved automatically to the cloud.");
   };
 
   const createItem = (formData: FormData) => {
@@ -2560,7 +2519,7 @@ function Pantry({
     ]);
     setAddItemOpen(false);
     setIsDirty(true);
-    setNotice("Supply item created. Select Save to keep this version on this device.");
+    setNotice("Supply item created. Changes are saved automatically to the cloud.");
   };
 
   const copySelectedSupply = () => {
@@ -2574,7 +2533,7 @@ function Pantry({
     setItems((current) => [copy, ...current]);
     setSelectedSupplyIds([copy.id]);
     setIsDirty(true);
-    setNotice("Supply item copied. Select Save to keep this version on this device.");
+    setNotice("Supply item copied. Changes are saved automatically to the cloud.");
   };
 
   const deleteSelectedSupplies = () => {
@@ -2586,7 +2545,7 @@ function Pantry({
     setItems((current) => current.filter((item) => !selectedSupplyIds.includes(item.id)));
     setSelectedSupplyIds([]);
     setIsDirty(true);
-    setNotice("Selected supply items deleted. Select Save to keep this version on this device.");
+    setNotice("Selected supply items deleted. Changes are saved automatically to the cloud.");
   };
 
   const editSelectedSupply = () => {
@@ -2599,9 +2558,9 @@ function Pantry({
   };
 
   const saveSupplies = () => {
-    window.localStorage.setItem("smart-home-supplies", JSON.stringify(items));
+    cloudStorage.setItem("smart-home-supplies", JSON.stringify(items));
     setIsDirty(false);
-    setNotice("Supplies saved on this device.");
+    setNotice("Supplies saved to cloud.");
   };
 
   const downloadSuppliesExcel = () => {
@@ -2657,7 +2616,7 @@ function Pantry({
       setItems(imported);
       setSelectedSupplyIds([]);
       setIsDirty(true);
-      setNotice(`${imported.length} supply items imported. Select Save to keep this version on this device.`);
+      setNotice(`${imported.length} supply items imported. Changes are saved automatically to the cloud.`);
     } catch {
       setNotice("That Excel file could not be read. Download the template and use its column headers.");
     }
@@ -3161,7 +3120,8 @@ function RewardWorksheet({
     return Array.from({ length: daysInMonth }, (_, index) => index + 1);
   }, []);
   const monthLabel = new Intl.DateTimeFormat("en-US", { month: "short", year: "2-digit" }).format(today).replace(" ", "'");
-  const [sheetValues, setSheetValues] = useState<Record<string, string>>({});
+  const [sheetValues, setSheetValues] = useState<Record<string, string>>(() => JSON.parse(cloudStorage.getItem("smart-home-reward-sheet") || "{}"));
+  useEffect(() => { cloudStorage.setItem("smart-home-reward-sheet", JSON.stringify(sheetValues)); }, [sheetValues]);
 
   const valueKey = (day: number, task: string) => `${activeChild}-${day}-${task}`;
   const updateCell = (day: number, task: string, value: string) => {
