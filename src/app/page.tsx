@@ -17,6 +17,7 @@ import {
   CircleDollarSign,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Clock,
   Copy,
   Download,
@@ -32,7 +33,8 @@ import {
   ListChecks,
   Mail,
   Moon,
-  MoreHorizontal,
+  PanelLeftClose,
+  PanelLeftOpen,
   Pencil,
   Plus,
   Search,
@@ -691,6 +693,8 @@ function App() {
   const [rewardToolsOpen, setRewardToolsOpen] = useState(false);
   const [pointManagerOpen, setPointManagerOpen] = useState(false);
   const [openWebGroups, setOpenWebGroups] = useState<Record<string, boolean>>({});
+  const [openTaskGroups, setOpenTaskGroups] = useState<Record<string, boolean>>({ rewards: false });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(288);
   const [monthCursor, setMonthCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
 
@@ -927,31 +931,47 @@ function App() {
       <div className="mx-auto flex w-full max-w-[1520px] gap-4 px-3 py-3 sm:px-5 lg:px-6">
         <aside
           className="sticky top-3 hidden h-[calc(100vh-1.5rem)] shrink-0 flex-col rounded-[1.75rem] border border-white/80 bg-white/70 p-4 shadow-panel backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/60 lg:flex"
-          style={{ width: sidebarWidth }}
+          style={{ width: sidebarCollapsed ? 88 : sidebarWidth }}
         >
-          <div className="flex items-center gap-3 px-2 py-3">
+          <div className={cn("flex items-center px-2 py-3", sidebarCollapsed ? "justify-center" : "gap-3")}>
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white dark:bg-teal-300 dark:text-slate-950">
               <Home className="h-6 w-6" />
             </div>
-            <div>
+            {!sidebarCollapsed && <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold">SMART - HOME</p>
-            </div>
+            </div>}
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed((current) => !current)}
+              className={cn("rounded-xl p-2 text-slate-500 transition hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white", sidebarCollapsed && "absolute -right-3 top-6 z-10 border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950")}
+              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {sidebarCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+            </button>
           </div>
           <nav className="mt-5 space-y-2">
             {navItems.map((item) => (
               <div key={item.id}>
                 <button
-                  onClick={() => setActiveSection(item.id)}
+                  onClick={() => {
+                    setActiveSection(item.id);
+                    if (item.id === "rewards") setOpenTaskGroups((current) => ({ ...current, rewards: activeSection !== "rewards" || !current.rewards }));
+                  }}
+                  aria-expanded={item.id === "rewards" ? Boolean(openTaskGroups.rewards) : undefined}
+                  title={sidebarCollapsed ? item.label : undefined}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-500 transition hover:bg-white hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white",
+                    "flex w-full items-center rounded-2xl py-3 text-left text-sm font-medium text-slate-500 transition hover:bg-white hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white",
+                    sidebarCollapsed ? "justify-center px-3" : "gap-3 px-4",
                     activeSection === item.id && "bg-slate-950 text-white shadow-glow hover:bg-slate-950 hover:text-white dark:bg-white dark:text-slate-950 dark:hover:bg-white"
                   )}
                 >
                   <item.icon className="h-5 w-5" />
-                  {item.label}
+                  {!sidebarCollapsed && <span className="flex-1">{item.label}</span>}
+                  {!sidebarCollapsed && item.id === "rewards" && <ChevronRight className={cn("h-4 w-4 transition-transform", openTaskGroups.rewards && "rotate-90")} />}
                 </button>
-                {item.id === "rewards" && activeSection === "rewards" && (
-                  <div className="ml-10 mt-2 space-y-1">
+                {item.id === "rewards" && !sidebarCollapsed && activeSection === "rewards" && openTaskGroups.rewards && (
+                  <div className="ml-10 mt-2 space-y-1" aria-label="Rewards options">
                     <button
                       onClick={() => setRewardToolsOpen(true)}
                       className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
@@ -968,7 +988,7 @@ function App() {
                     </button>
                   </div>
                 )}
-                {item.id === "menu-planner" && (
+                {item.id === "menu-planner" && !sidebarCollapsed && (
                   <div className="mt-2 space-y-2">
                     {sidebarWebGroups.map((group) => (
                       <div key={group.label}>
@@ -1005,10 +1025,9 @@ function App() {
               </div>
             ))}
           </nav>
-          <div className="mt-auto rounded-3xl bg-slate-950 p-5 text-white dark:bg-white dark:text-slate-950">
-            <p className="text-sm font-semibold">Family plan</p>
-            <p className="mt-2 text-xs leading-5 opacity-70">2 children, 4 upcoming events, private Supabase-ready workspace.</p>
-            <div className="mt-5 flex -space-x-2">
+          <div className={cn("mt-auto rounded-3xl bg-slate-950 text-white dark:bg-white dark:text-slate-950", sidebarCollapsed ? "p-3" : "p-5")}>
+            {!sidebarCollapsed && <><p className="text-sm font-semibold">Family plan</p><p className="mt-2 text-xs leading-5 opacity-70">2 children, 4 upcoming events, private Supabase-ready workspace.</p></>}
+            <div className={cn("flex -space-x-2", sidebarCollapsed ? "justify-center" : "mt-5")}>
               {["L", "J", "P", "G"].map((avatar) => (
                 <span key={avatar} className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-slate-950 bg-teal-200 text-xs font-bold text-slate-950 dark:border-white">
                   {avatar}
@@ -1016,13 +1035,13 @@ function App() {
               ))}
             </div>
           </div>
-          <div
+          {!sidebarCollapsed && <div
             role="separator"
             aria-orientation="vertical"
             aria-label="Resize sidebar"
             onPointerDown={startSidebarResize}
             className="absolute -right-2 top-8 h-[calc(100%-4rem)] w-4 cursor-col-resize rounded-full transition hover:bg-teal-300/30"
-          />
+          />}
         </aside>
 
         <section className="min-w-0 flex-1">
@@ -3472,20 +3491,35 @@ function SettingsPanel({ theme, setTheme }: { theme: "light" | "dark"; setTheme:
   );
 }
 
-function Panel({ title, action, onAction, children }: { title: string; action?: string; onAction?: () => void; children: React.ReactNode }) {
+function Panel({ title, action, onAction, children, defaultCollapsed = false }: { title: string; action?: string; onAction?: () => void; children: React.ReactNode; defaultCollapsed?: boolean }) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const panelId = `panel-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
     <section className="glass rounded-[1.5rem] p-5 shadow-panel sm:p-6">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">{title}</h2>
-        {action ? (
-          <button onClick={onAction} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200 dark:bg-white/10 dark:text-white dark:hover:bg-white/20">
-            {action}
+      <div className={cn("flex items-center justify-between gap-3", !collapsed && "mb-5")}>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <ChevronDown className={cn("h-5 w-5 shrink-0 text-teal-700 transition-transform duration-200 dark:text-teal-200", collapsed && "-rotate-90")} />
+          <h2 className="truncate text-lg font-semibold">{title}</h2>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {action && (
+            <button onClick={onAction} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200 dark:bg-white/10 dark:text-white dark:hover:bg-white/20">
+              {action}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setCollapsed((current) => !current)}
+            aria-expanded={!collapsed}
+            className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-teal-700 dark:hover:bg-white/10 dark:hover:text-teal-200"
+            aria-label={`${collapsed ? "Expand" : "Collapse"} ${title}`}
+            title={`${collapsed ? "Expand" : "Collapse"} ${title}`}
+          >
+            <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", collapsed && "-rotate-90")} />
           </button>
-        ) : (
-          <MoreHorizontal className="h-5 w-5 text-slate-400" />
-        )}
+        </div>
       </div>
-      {children}
+      {!collapsed && <div id={panelId}>{children}</div>}
     </section>
   );
 }
