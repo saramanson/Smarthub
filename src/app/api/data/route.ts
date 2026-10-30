@@ -26,6 +26,7 @@ export async function PUT(request: Request) {
   if (raw.length > 4_000_000) return Response.json({ error: 'Record too large' }, { status: 413 });
   let body;
   try { body = JSON.parse(raw); } catch { return Response.json({ error: 'Invalid JSON' }, { status: 400 }); }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return Response.json({ error: 'Invalid record' }, { status: 400 });
   const { key, value, version } = body;
   if (!(keys.has(key) || /^smart-home-bill-[a-f0-9-]{36}-[0-9]{1,2}$/.test(key)) || value === undefined || !Number.isInteger(version) || version < 0) return Response.json({ error: 'Invalid record' }, { status: 400 });
   const sql = neon(process.env.DATABASE_URL!);
