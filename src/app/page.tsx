@@ -128,6 +128,19 @@ type Expense = {
   bill?: BillAttachment;
 };
 
+type ChoreFrequency = "Daily" | "Weekly" | "Monthly" | "Annual";
+
+type Chore = {
+  id: string;
+  title: string;
+  category: string;
+  frequency: ChoreFrequency;
+  schedule: string;
+  assignee: string;
+  completed: boolean;
+  completedAt?: string;
+};
+
 type BillAttachment = {
   id: string;
   name: string;
@@ -222,7 +235,7 @@ type MenuSide = {
   note?: string;
 };
 
-type Section = "dashboard" | "rewards" | "calendar" | "pantry" | "expense" | "menu-planner" | "notifications" | "settings";
+type Section = "dashboard" | "rewards" | "calendar" | "pantry" | "chores" | "expense" | "menu-planner" | "notifications" | "settings";
 type CalendarView = "month" | "week" | "day" | "agenda";
 type RewardSheetChild = "jiya" | "lakhan";
 
@@ -577,6 +590,54 @@ const seedPantryItems: PantryItem[] = [
     unitPrice
   }))
 ];
+
+const seedChores: Chore[] = [
+  ["Sweeping", "Indoor", "Daily", "Every afternoon", "Shared"],
+  ["Drop Jiya", "Childcare", "Daily", "School / activity drop-off", "Shared"],
+  ["Lakshan poop clean", "Childcare", "Daily", "As needed", "Shared"],
+  ["Feed Lakshan", "Childcare", "Daily", "Morning and evening", "Shared"],
+  ["Drop kid (Lakshan)", "Childcare", "Daily", "School / activity drop-off", "Shared"],
+  ["Breakfast prep", "Cooking & Kitchen", "Daily", "Morning", "Shared"],
+  ["Lunch preparation", "Cooking & Kitchen", "Daily", "Morning", "Shared"],
+  ["Clean bedroom", "Family Routine", "Daily", "Evening reset", "Shared"],
+  ["Pick Lakshan", "Childcare", "Daily", "School / activity pick-up", "Shared"],
+  ["Lakshan bath", "Childcare", "Daily", "Evening", "Shared"],
+  ["Snacks to kids", "Childcare", "Daily", "Afternoon", "Shared"],
+  ["Kids homework", "Childcare", "Daily", "After school", "Shared"],
+  ["Make dinner", "Cooking & Kitchen", "Daily", "Evening", "Shared"],
+  ["Make kids sleep", "Childcare", "Daily", "Bedtime", "Shared"],
+  ["Dish washing", "Cooking & Kitchen", "Daily", "After meals", "Shared"],
+  ["Vegetable cutting", "Cooking & Kitchen", "Daily", "Meal preparation", "Shared"],
+  ["Mopping (Mobing)", "Indoor", "Weekly", "Every 2 weeks", "GM"],
+  ["Toilet cleaning", "Indoor", "Weekly", "Every week", "GM"],
+  ["Bath tub cleaning", "Indoor", "Weekly", "Every 2 weeks", "GM"],
+  ["Laundry", "Indoor", "Weekly", "Monday and Friday", "Shared"],
+  ["Pool cleaning", "Outdoor & Garden", "Weekly", "Every 2 weeks", "GM"],
+  ["Gardening", "Outdoor & Garden", "Weekly", "Every 2 weeks", "GM"],
+  ["Pest control and vigilance", "Outdoor & Garden", "Weekly", "Every week", "GM"],
+  ["Weed plucking", "Outdoor & Garden", "Weekly", "Every 2 weeks", "GM"],
+  ["Book pick / drop", "Family Routine", "Weekly", "Weekly", "Shared"],
+  ["Mop floors", "Indoor", "Weekly", "Weekly", "Shared"],
+  ["Cloth arrangement", "Indoor", "Weekly", "Weekly", "Shared"],
+  ["Vacuum home", "Indoor", "Weekly", "Weekly", "Shared"],
+  ["Clean kitchen", "Cooking & Kitchen", "Weekly", "Weekly", "Shared"],
+  ["Grocery purchase", "Family Routine", "Weekly", "Weekly", "Shared"],
+  ["Glass door cleaning", "Indoor", "Monthly", "Once a month", "GM"],
+  ["Floor vacuum", "Indoor", "Monthly", "Once a month", "GM"],
+  ["Fragrance monitor", "Indoor", "Monthly", "Once a month", "GM"],
+  ["Kitchen countertop clean", "Cooking & Kitchen", "Monthly", "Once a month", "GM"],
+  ["Watering plants", "Outdoor & Garden", "Monthly", "Once a month", "GM"],
+  ["Neem water", "Outdoor & Garden", "Monthly", "Once a month", "Feed Jiya"],
+  ["Annual deep clean & home review", "Indoor", "Annual", "Once a year", "GM"]
+].map(([title, category, frequency, schedule, assignee], index) => ({
+  id: `chore-${String(index + 1).padStart(2, "0")}`,
+  title,
+  category,
+  frequency: frequency as ChoreFrequency,
+  schedule,
+  assignee,
+  completed: false
+}));
 
 const rewardSheetChildren = [
   { id: "jiya", name: "Jiya", homeTask: "Wash dishes" },
@@ -950,6 +1011,7 @@ function App() {
                 />
               )}
               {activeSection === "pantry" && <Pantry items={pantryItems} setItems={setPantryItems} />}
+              {activeSection === "chores" && <Chores />}
               {activeSection === "expense" && <ExpenseTracker items={expenses} setItems={setExpenses} />}
               {activeSection === "menu-planner" && <MenuPlanner meals={menuMeals} setMeals={setMenuMeals} sides={menuSides} setSides={setMenuSides} />}
               {activeSection === "notifications" && (
@@ -1107,6 +1169,7 @@ const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] =
   { id: "rewards", label: "Rewards", icon: Gift },
   { id: "calendar", label: "Calendar", icon: CalendarDays },
   { id: "pantry", label: "Supplies", icon: ShoppingBasket },
+  { id: "chores", label: "Chores", icon: ListChecks },
   { id: "expense", label: "Expense", icon: WalletCards },
   { id: "menu-planner", label: "Menu Planner", icon: Utensils },
   { id: "notifications", label: "Notifications", icon: Bell },
@@ -1968,6 +2031,247 @@ function ExpenseEditorModal({
             {billError && <p className="mt-2 text-xs font-medium text-rose-700 dark:text-rose-200">{billError}</p>}
           </section>
           <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white dark:bg-teal-300 dark:text-slate-950"><Save className="h-4 w-4" />{expense ? "Save expense" : "Add expense"}</button>
+        </form>
+      </motion.section>
+    </motion.div>
+  );
+}
+
+function Chores() {
+  const [chores, setChores] = useState<Chore[]>(seedChores);
+  const [storageReady, setStorageReady] = useState(false);
+  const [activeFrequency, setActiveFrequency] = useState<ChoreFrequency | "All">("Daily");
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("All");
+  const [assignee, setAssignee] = useState("All");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingChore, setEditingChore] = useState<Chore | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("smart-home-chores");
+      if (saved) {
+        const parsed: unknown = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const restored = parsed.filter((candidate): candidate is Chore => {
+            if (!candidate || typeof candidate !== "object") return false;
+            const value = candidate as Partial<Chore>;
+            return typeof value.id === "string" && typeof value.title === "string" && typeof value.category === "string" && typeof value.schedule === "string" && typeof value.assignee === "string" && ["Daily", "Weekly", "Monthly", "Annual"].includes(String(value.frequency));
+          }).map((item) => ({ ...item, completed: Boolean(item.completed) }));
+          if (restored.length) setChores(restored);
+        }
+      }
+    } catch {
+      window.localStorage.removeItem("smart-home-chores");
+    } finally {
+      setStorageReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (storageReady) window.localStorage.setItem("smart-home-chores", JSON.stringify(chores));
+  }, [chores, storageReady]);
+
+  const frequencies: readonly (ChoreFrequency | "All")[] = ["Daily", "Weekly", "Monthly", "Annual", "All"];
+  const categories = useMemo(() => Array.from(new Set(chores.map((chore) => chore.category))).sort(), [chores]);
+  const assignees = useMemo(() => Array.from(new Set(chores.map((chore) => chore.assignee))).sort(), [chores]);
+  const frequencyCounts = useMemo(() => Object.fromEntries((["Daily", "Weekly", "Monthly", "Annual"] as ChoreFrequency[]).map((frequency) => [frequency, chores.filter((chore) => chore.frequency === frequency).length])) as Record<ChoreFrequency, number>, [chores]);
+  const visibleChores = useMemo(() => chores.filter((chore) => {
+    const matchesFrequency = activeFrequency === "All" || chore.frequency === activeFrequency;
+    const matchesSearch = `${chore.title} ${chore.category} ${chore.assignee} ${chore.schedule}`.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = category === "All" || chore.category === category;
+    const matchesAssignee = assignee === "All" || chore.assignee === assignee;
+    return matchesFrequency && matchesSearch && matchesCategory && matchesAssignee;
+  }), [activeFrequency, assignee, category, chores, search]);
+  const cadenceChores = activeFrequency === "All" ? chores : chores.filter((chore) => chore.frequency === activeFrequency);
+  const completedCount = cadenceChores.filter((chore) => chore.completed).length;
+  const completionPercent = cadenceChores.length ? Math.round((completedCount / cadenceChores.length) * 100) : 0;
+  const cadenceLabel = activeFrequency === "All" ? "Family" : activeFrequency;
+
+  const toggleComplete = (id: string) => {
+    setChores((current) => current.map((chore) => chore.id === id ? { ...chore, completed: !chore.completed, completedAt: chore.completed ? undefined : new Date().toISOString() } : chore));
+  };
+
+  const updateAssignee = (id: string, nextAssignee: string) => {
+    setChores((current) => current.map((chore) => chore.id === id ? { ...chore, assignee: nextAssignee } : chore));
+  };
+
+  const saveChore = (formData: FormData) => {
+    const title = String(formData.get("chore-title") || "").trim();
+    if (!title) return;
+    const frequencyValue = String(formData.get("chore-frequency") || "Weekly");
+    const frequency: ChoreFrequency = ["Daily", "Weekly", "Monthly", "Annual"].includes(frequencyValue) ? frequencyValue as ChoreFrequency : "Weekly";
+    const nextChore: Chore = {
+      id: editingChore?.id ?? crypto.randomUUID(),
+      title,
+      category: String(formData.get("chore-category") || "Family Routine"),
+      frequency,
+      schedule: String(formData.get("chore-schedule") || frequency),
+      assignee: String(formData.get("chore-assignee") || "Shared"),
+      completed: editingChore?.completed ?? false,
+      ...(editingChore?.completedAt ? { completedAt: editingChore.completedAt } : {})
+    };
+    setChores((current) => editingChore ? current.map((chore) => chore.id === editingChore.id ? nextChore : chore) : [nextChore, ...current]);
+    setEditingChore(null);
+    setEditorOpen(false);
+  };
+
+  const deleteChore = (id: string) => {
+    setChores((current) => current.filter((chore) => chore.id !== id));
+  };
+
+  const openCreate = () => {
+    setEditingChore(null);
+    setEditorOpen(true);
+  };
+
+  const openEdit = (chore: Chore) => {
+    setEditingChore(chore);
+    setEditorOpen(true);
+  };
+
+  const frequencyStyle: Record<ChoreFrequency, string> = {
+    Daily: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-300/25 dark:bg-amber-300/10 dark:text-amber-100",
+    Weekly: "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-300/25 dark:bg-sky-300/10 dark:text-sky-100",
+    Monthly: "border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-300/25 dark:bg-violet-300/10 dark:text-violet-100",
+    Annual: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-300/25 dark:bg-emerald-300/10 dark:text-emerald-100"
+  };
+
+  return (
+    <div className="space-y-5">
+      <section className="overflow-hidden rounded-[2rem] bg-gradient-to-br from-emerald-700 via-teal-700 to-emerald-900 p-6 text-white shadow-panel sm:p-8">
+        <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em]">
+              <Sparkles className="h-3.5 w-3.5" /> Family schedule & maintenance
+            </div>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">Family Chore Chart</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50 sm:text-base">Plan, assign, and complete household routines by daily, weekly, monthly, and annual cadence.</p>
+          </div>
+          <div className="grid grid-cols-4 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/25 text-center shadow-sm">
+            {(["Daily", "Weekly", "Monthly", "Annual"] as ChoreFrequency[]).map((frequency) => (
+              <div key={frequency} className="min-w-20 border-r border-white/10 px-3 py-3 last:border-r-0">
+                <p className="text-2xl font-semibold tabular-nums">{frequencyCounts[frequency]}</p>
+                <p className="mt-1 text-[11px] font-medium text-emerald-100 sm:text-xs">{frequency}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 dark:border-white/10 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex w-full overflow-x-auto rounded-2xl bg-slate-100 p-1 dark:bg-white/5 lg:w-auto">
+          {frequencies.map((frequency) => (
+            <button key={frequency} onClick={() => setActiveFrequency(frequency)} className={cn("inline-flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition", activeFrequency === frequency ? "bg-white text-slate-950 shadow-sm dark:bg-white/15 dark:text-white" : "text-slate-500 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white")}>
+              {frequency === "Daily" && <Sun className="h-4 w-4 text-amber-500" />}
+              {frequency === "Weekly" && <CalendarDays className="h-4 w-4 text-sky-500" />}
+              {frequency === "Monthly" && <CalendarDays className="h-4 w-4 text-violet-500" />}
+              {frequency === "Annual" && <Award className="h-4 w-4 text-emerald-500" />}
+              {frequency === "All" && <ListChecks className="h-4 w-4 text-teal-500" />}
+              {frequency}{frequency !== "All" && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] tabular-nums dark:bg-white/10">{frequencyCounts[frequency]}</span>}
+              {frequency === "All" && <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[11px] tabular-nums dark:bg-white/10">{chores.length}</span>}
+            </button>
+          ))}
+        </div>
+        <button onClick={openCreate} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-600">
+          <Plus className="h-4 w-4" /> Add chore
+        </button>
+      </div>
+
+      <section className="rounded-2xl border border-slate-200 bg-white/75 p-3 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/60">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto]">
+          <label className="relative block">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search chore, assignee, or frequency..." className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" />
+          </label>
+          <select value={assignee} onChange={(event) => setAssignee(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">
+            <option value="All">Who: All family</option>
+            {assignees.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+          <select value={category} onChange={(event) => setCategory(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">
+            <option value="All">Category: All categories</option>
+            {categories.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white/75 p-4 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/60">
+        <div className="flex items-center justify-between gap-4 text-sm">
+          <p className="font-semibold"><CircleCheckBig className="mr-2 inline h-4 w-4 text-emerald-600" />{cadenceLabel} cadence progress</p>
+          <p className="font-medium text-slate-500 dark:text-slate-400">{completedCount} of {cadenceChores.length} completed ({completionPercent}%)</p>
+        </div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${completionPercent}%` }} /></div>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {visibleChores.map((chore) => {
+          const isOutdoor = chore.category.includes("Outdoor");
+          const isKitchen = chore.category.includes("Kitchen");
+          const isChildcare = chore.category.includes("Childcare");
+          return (
+            <article key={chore.id} className={cn("rounded-2xl border bg-white/80 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-panel dark:bg-slate-950/60", chore.completed ? "border-emerald-200 dark:border-emerald-300/20" : "border-slate-200 dark:border-white/10")}>
+              <div className="flex items-center justify-between gap-3">
+                <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold", frequencyStyle[chore.frequency])}><CalendarDays className="h-3.5 w-3.5" />{chore.schedule}</span>
+                <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 dark:bg-white/10 dark:text-slate-300">{isOutdoor ? <Leaf className="h-3.5 w-3.5 text-emerald-600" /> : isKitchen ? <Utensils className="h-3.5 w-3.5 text-amber-600" /> : isChildcare ? <Heart className="h-3.5 w-3.5 text-rose-500" /> : <Home className="h-3.5 w-3.5 text-sky-500" />}{chore.category}</span>
+              </div>
+              <div className="mt-4 flex items-start gap-3">
+                <button type="button" onClick={() => toggleComplete(chore.id)} aria-label={`Mark ${chore.title} as ${chore.completed ? "not completed" : "completed"}`} className={cn("mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition", chore.completed ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-300 text-transparent dark:border-slate-500")}><Check className="h-3.5 w-3.5" /></button>
+                <div className="min-w-0"><h3 className={cn("font-semibold", chore.completed && "text-slate-400 line-through dark:text-slate-500")}>{chore.title}</h3><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{chore.frequency} · {chore.schedule}</p></div>
+              </div>
+              <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3 dark:border-white/10">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-700 dark:bg-white/10 dark:text-slate-200">{chore.assignee.slice(0, 2).toUpperCase()}</span>
+                <select aria-label={`Assign ${chore.title}`} value={chore.assignee} onChange={(event) => updateAssignee(chore.id, event.target.value)} className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">
+                  {["Shared", "GM", "Ganesh", "Jiya", "Lakshan", "Feed Jiya"].map((person) => <option key={person} value={person}>{person}</option>)}
+                </select>
+                <button type="button" onClick={() => openEdit(chore)} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-teal-700 dark:hover:bg-white/10 dark:hover:text-teal-200" aria-label={`Edit ${chore.title}`}><Pencil className="h-4 w-4" /></button>
+                <button type="button" onClick={() => deleteChore(chore.id)} className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-300/10 dark:hover:text-rose-200" aria-label={`Delete ${chore.title}`}><Trash2 className="h-4 w-4" /></button>
+              </div>
+            </article>
+          );
+        })}
+      </section>
+      {visibleChores.length === 0 && <p className="rounded-2xl border border-dashed border-slate-300 px-4 py-12 text-center text-sm text-slate-500 dark:border-white/15 dark:text-slate-400">No chores match this view. Add a chore or change the filters.</p>}
+
+      <AnimatePresence>{editorOpen && <ChoreEditorModal chore={editingChore} categories={categories} onClose={() => { setEditorOpen(false); setEditingChore(null); }} onSave={saveChore} />}</AnimatePresence>
+    </div>
+  );
+}
+
+function ChoreEditorModal({
+  chore,
+  categories,
+  onClose,
+  onSave
+}: {
+  chore: Chore | null;
+  categories: string[];
+  onClose: () => void;
+  onSave: (formData: FormData) => void;
+}) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  const categoryOptions = Array.from(new Set(["Indoor", "Outdoor & Garden", "Cooking & Kitchen", "Childcare", "Family Routine", ...categories]));
+  return (
+    <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <div className="absolute inset-0" onClick={onClose} />
+      <motion.section role="dialog" aria-modal="true" aria-labelledby="chore-editor-title" initial={{ scale: 0.96, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 12 }} className="relative w-full max-w-lg rounded-[1.5rem] bg-white p-5 shadow-panel dark:bg-slate-950 sm:p-6">
+        <div className="mb-5 flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">Chores</p><h2 id="chore-editor-title" className="mt-1 text-2xl font-semibold">{chore ? "Edit chore" : "Add chore"}</h2></div><button className="rounded-full p-2 hover:bg-slate-100 dark:hover:bg-white/10" onClick={onClose} aria-label="Close chore editor"><X className="h-5 w-5" /></button></div>
+        <form action={onSave} className="space-y-3">
+          <Input name="chore-title" label="Chore name" defaultValue={chore?.title} placeholder="Clean refrigerator" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm font-medium">Category<select name="chore-category" defaultValue={chore?.category ?? "Indoor"} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">{categoryOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
+            <label className="block text-sm font-medium">Frequency<select name="chore-frequency" defaultValue={chore?.frequency ?? "Weekly"} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">{(["Daily", "Weekly", "Monthly", "Annual"] as ChoreFrequency[]).map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input name="chore-schedule" label="Schedule detail" defaultValue={chore?.schedule} placeholder="Every Saturday" />
+            <label className="block text-sm font-medium">Responsible<select name="chore-assignee" defaultValue={chore?.assignee ?? "Shared"} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">{["Shared", "GM", "Ganesh", "Jiya", "Lakshan", "Feed Jiya"].map((person) => <option key={person} value={person}>{person}</option>)}</select></label>
+          </div>
+          <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">Chores are saved automatically on this device and remain here until you delete them.</p>
+          <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600"><Check className="h-4 w-4" />{chore ? "Save changes" : "Add chore"}</button>
         </form>
       </motion.section>
     </motion.div>
@@ -2939,11 +3243,11 @@ function Panel({ title, action, onAction, children }: { title: string; action?: 
   );
 }
 
-function Input({ label, name, placeholder, type = "text" }: { label: string; name: string; placeholder?: string; type?: string }) {
+function Input({ label, name, placeholder, type = "text", defaultValue }: { label: string; name: string; placeholder?: string; type?: string; defaultValue?: string | number }) {
   return (
     <label className="block text-sm font-medium">
       {label}
-      <input name={name} type={type} placeholder={placeholder} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-teal-400 dark:border-white/10 dark:bg-white/5" />
+      <input name={name} type={type} defaultValue={defaultValue} placeholder={placeholder} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-teal-400 dark:border-white/10 dark:bg-white/5" />
     </label>
   );
 }
