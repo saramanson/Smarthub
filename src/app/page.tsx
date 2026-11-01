@@ -1843,7 +1843,7 @@ function ExpenseTracker({
       date.setHours(0, 0, 0, 0);
       date.setDate(date.getDate() - (6 - index));
       const key = date.toISOString().slice(0, 10);
-      return { label: formatter.format(date), amount: items.filter((item) => item.date === key).reduce((sum, item) => sum + (item.type === "Credit" ? 0 : item.amount), 0) };
+      return { label: formatter.format(date), amount: items.filter((item) => item.date === key).reduce((sum, item) => sum + (item.type === "Credit" ? -item.amount : item.amount), 0) };
     });
   }, [items]);
 
@@ -1853,7 +1853,7 @@ function ExpenseTracker({
     return Array.from({ length: 6 }, (_, index) => {
       const date = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      return { label: formatter.format(date), amount: items.filter((item) => item.date.startsWith(key)).reduce((sum, item) => sum + (item.type === "Credit" ? 0 : item.amount), 0) };
+      return { label: formatter.format(date), amount: items.filter((item) => item.date.startsWith(key)).reduce((sum, item) => sum + (item.type === "Credit" ? -item.amount : item.amount), 0) };
     });
   }, [items]);
 
@@ -1861,7 +1861,7 @@ function ExpenseTracker({
     () => expenseCategories.map((categoryName) => ({ name: categoryName, amount: items.filter((item) => item.category === categoryName).reduce((sum, item) => sum + (item.type === "Credit" ? 0 : item.amount), 0) })).filter((item) => item.amount > 0),
     [items]
   );
-  const totalSpend = items.reduce((sum, item) => sum + (item.type === "Credit" ? 0 : item.amount), 0);
+  const totalSpend = items.reduce((sum, item) => sum + (item.type === "Credit" ? -item.amount : item.amount), 0);
   const weekSpend = weeklySpend.reduce((sum, item) => sum + item.amount, 0);
   const monthSpend = monthlySpend.at(-1)?.amount ?? 0;
 
@@ -1989,9 +1989,9 @@ function ExpenseTracker({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <PantryMetric label="Total spend" value={currency.format(totalSpend)} detail="All saved expenses" icon={WalletCards} tone="bg-rose-100 text-rose-700 dark:bg-rose-300/15 dark:text-rose-200" />
-        <PantryMetric label="This week" value={currency.format(weekSpend)} detail="Last 7 days" icon={TrendingUp} tone="bg-amber-100 text-amber-700 dark:bg-amber-300/15 dark:text-amber-200" />
-        <PantryMetric label="This month" value={currency.format(monthSpend)} detail="Current calendar month" icon={CalendarDays} tone="bg-sky-100 text-sky-700 dark:bg-sky-300/15 dark:text-sky-200" />
+        <PantryMetric label="Total spend" value={currency.format(totalSpend)} detail="Debits minus credits" icon={WalletCards} tone="bg-rose-100 text-rose-700 dark:bg-rose-300/15 dark:text-rose-200" />
+        <PantryMetric label="This week" value={currency.format(weekSpend)} detail="Last 7 days · Debit − Credit" icon={TrendingUp} tone="bg-amber-100 text-amber-700 dark:bg-amber-300/15 dark:text-amber-200" />
+        <PantryMetric label="This month" value={currency.format(monthSpend)} detail="This month · Debit − Credit" icon={CalendarDays} tone="bg-sky-100 text-sky-700 dark:bg-sky-300/15 dark:text-sky-200" />
         <PantryMetric label="Transactions" value={items.length.toLocaleString()} detail="Saved to cloud" icon={ListChecks} tone="bg-teal-100 text-teal-700 dark:bg-teal-300/15 dark:text-teal-200" />
       </div>
 
