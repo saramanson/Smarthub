@@ -1843,7 +1843,10 @@ function ExpenseTracker({
       date.setHours(0, 0, 0, 0);
       date.setDate(date.getDate() - (6 - index));
       const key = date.toISOString().slice(0, 10);
-      return { label: formatter.format(date), amount: items.filter((item) => item.date === key).reduce((sum, item) => sum + (item.type === "Credit" ? -item.amount : item.amount), 0) };
+      const entries = items.filter(item => item.date === key);
+      const credit = entries.filter(item => item.type === "Credit").reduce((sum, item) => sum + item.amount, 0);
+      const debit = -entries.filter(item => item.type !== "Credit").reduce((sum, item) => sum + item.amount, 0);
+      return { label: formatter.format(date), amount: credit + debit, credit, debit };
     });
   }, [items]);
 
@@ -1853,15 +1856,18 @@ function ExpenseTracker({
     return Array.from({ length: 6 }, (_, index) => {
       const date = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      return { label: formatter.format(date), amount: items.filter((item) => item.date.startsWith(key)).reduce((sum, item) => sum + (item.type === "Credit" ? -item.amount : item.amount), 0) };
+      const entries = items.filter(item => item.date.startsWith(key));
+      const credit = entries.filter(item => item.type === "Credit").reduce((sum, item) => sum + item.amount, 0);
+      const debit = -entries.filter(item => item.type !== "Credit").reduce((sum, item) => sum + item.amount, 0);
+      return { label: formatter.format(date), amount: credit + debit, credit, debit };
     });
   }, [items]);
 
   const categorySpend = useMemo(
-    () => expenseCategories.map((categoryName) => ({ name: categoryName, amount: items.filter((item) => item.category === categoryName).reduce((sum, item) => sum + (item.type === "Credit" ? 0 : item.amount), 0) })).filter((item) => item.amount > 0),
+    () => expenseCategories.map((categoryName) => ({ name: categoryName, amount: items.filter((item) => item.category === categoryName).reduce((sum, item) => sum + (item.type === "Credit" ? item.amount : -item.amount), 0) })).filter((item) => item.amount !== 0),
     [items]
   );
-  const totalSpend = items.reduce((sum, item) => sum + (item.type === "Credit" ? -item.amount : item.amount), 0);
+  const totalSpend = items.reduce((sum, item) => sum + (item.type === "Credit" ? item.amount : -item.amount), 0);
   const weekSpend = weeklySpend.reduce((sum, item) => sum + item.amount, 0);
   const monthSpend = monthlySpend.at(-1)?.amount ?? 0;
 
@@ -1989,9 +1995,9 @@ function ExpenseTracker({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <PantryMetric label="Total spend" value={currency.format(totalSpend)} detail="Debits minus credits" icon={WalletCards} tone="bg-rose-100 text-rose-700 dark:bg-rose-300/15 dark:text-rose-200" />
-        <PantryMetric label="This week" value={currency.format(weekSpend)} detail="Last 7 days · Debit − Credit" icon={TrendingUp} tone="bg-amber-100 text-amber-700 dark:bg-amber-300/15 dark:text-amber-200" />
-        <PantryMetric label="This month" value={currency.format(monthSpend)} detail="This month · Debit − Credit" icon={CalendarDays} tone="bg-sky-100 text-sky-700 dark:bg-sky-300/15 dark:text-sky-200" />
+        <PantryMetric label="Total spend" value={currency.format(totalSpend)} detail="All transactions" icon={WalletCards} tone="bg-rose-100 text-rose-700 dark:bg-rose-300/15 dark:text-rose-200" />
+        <PantryMetric label="This week" value={currency.format(weekSpend)} detail="Last 7 days" icon={TrendingUp} tone="bg-amber-100 text-amber-700 dark:bg-amber-300/15 dark:text-amber-200" />
+        <PantryMetric label="This month" value={currency.format(monthSpend)} detail="Current calendar month" icon={CalendarDays} tone="bg-sky-100 text-sky-700 dark:bg-sky-300/15 dark:text-sky-200" />
         <PantryMetric label="Transactions" value={items.length.toLocaleString()} detail="Saved to cloud" icon={ListChecks} tone="bg-teal-100 text-teal-700 dark:bg-teal-300/15 dark:text-teal-200" />
       </div>
 
@@ -2004,7 +2010,7 @@ function ExpenseTracker({
                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} tickFormatter={(value) => `$${value}`} />
                 <Tooltip formatter={(value) => currency.format(Number(value))} cursor={{ fill: "rgba(20,184,166,0.08)" }} />
-                <Bar dataKey="amount" fill="#0f766e" radius={[7, 7, 0, 0]} />
+                <Legend /><Bar name="Credit" dataKey="credit" fill="#16a34a" radius={4} /><Bar name="Debit" dataKey="debit" fill="#ec4899" radius={4} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -2013,13 +2019,13 @@ function ExpenseTracker({
         <Panel title="Monthly spend">
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={monthlySpend} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
+              <BarChart data={monthlySpend} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#cbd5e1" />
                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} tickFormatter={(value) => `$${value}`} />
                 <Tooltip formatter={(value) => currency.format(Number(value))} />
-                <Area type="monotone" dataKey="amount" stroke="#2563eb" fill="#bfdbfe" strokeWidth={3} />
-              </AreaChart>
+                <Legend /><Bar name="Credit" dataKey="credit" fill="#16a34a" radius={4} /><Bar name="Debit" dataKey="debit" fill="#ec4899" radius={4} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </Panel>
@@ -2029,13 +2035,13 @@ function ExpenseTracker({
           {categorySpend.length ? (
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={categorySpend} dataKey="amount" nameKey="name" innerRadius={62} outerRadius={100} paddingAngle={3}>
-                    {categorySpend.map((entry, index) => <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />)}
-                  </Pie>
+                <BarChart data={categorySpend} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#cbd5e1" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} />
+                  <YAxis tickFormatter={(value) => `$${value}`} />
                   <Tooltip formatter={(value) => currency.format(Number(value))} />
-                  <Legend iconType="circle" wrapperStyle={{ fontSize: "12px" }} />
-                </PieChart>
+                  <Bar name="Net" dataKey="amount" radius={4}>{categorySpend.map(entry => <Cell key={entry.name} fill={entry.amount >= 0 ? "#16a34a" : "#ec4899"} />)}</Bar>
+                </BarChart>
               </ResponsiveContainer>
             </div>
           ) : (
