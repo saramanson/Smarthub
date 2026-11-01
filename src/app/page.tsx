@@ -5,7 +5,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { ReferenceLine, Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { LabelList, ReferenceLine, Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import * as XLSX from "xlsx";
 import {
   Award,
@@ -1878,12 +1878,14 @@ function ExpenseTracker({
     const entries = items.filter(item => item.date.startsWith(`${burnDownMonth}-`));
     const credit = entries.filter(item => item.type === "Credit").reduce((sum, item) => sum + item.amount, 0);
     let debit = 0;
-    return Array.from({ length: days }, (_, index) => {
+    const daily = Array.from({ length: days }, (_, index) => {
       const date = `${burnDownMonth}-${String(index + 1).padStart(2, "0")}`;
-      debit += entries.filter(item => item.date === date && item.type !== "Credit").reduce((sum, item) => sum + item.amount, 0);
-      return { date, credit, debit, remaining: credit - debit };
+      const spent = entries.filter(item => item.date === date && item.type !== "Credit").reduce((sum, item) => sum + item.amount, 0);
+      debit += spent;
+      return { date, credit, debit, spent, remaining: credit - debit, balanceLabel: index === days - 1 ? currency.format(credit - debit) : "" };
     });
-  }, [items, burnDownMonth]);
+    return [{ date: "Start", credit, debit: 0, spent: 0, remaining: credit, balanceLabel: currency.format(credit) }, ...daily];
+  }, [items, burnDownMonth, currency]);
   const monthSavings = creditBurnDown.at(-1)?.remaining ?? 0;
   const totalSpend = items.reduce((sum, item) => sum + (item.type === "Credit" ? item.amount : -item.amount), 0);
   const weekSpend = weeklySpend.reduce((sum, item) => sum + item.amount, 0);
@@ -2079,9 +2081,9 @@ function ExpenseTracker({
           <div><p className="text-xs text-slate-500">Starting credit</p><p className="text-xl font-semibold text-green-600">{currency.format(monthCredit)}</p></div>
           <div><p className="text-xs text-slate-500">{monthSavings < 0 ? "Overspending" : "Savings"}</p><p className={cn("text-xl font-semibold", monthSavings < 0 ? "text-pink-600" : "text-green-600")}>{currency.format(Math.abs(monthSavings))}</p></div>
         </div>
-        <p className="mb-3 text-xs text-slate-500">Month-end balance based on recorded transactions.</p>
+        <p className="mb-3 text-xs text-slate-500">Spent this month: {currency.format(monthCredit - monthSavings)}. Each dated bar shows the balance after that day’s expenses.</p>
         {creditBurnDown.length ? <div className="h-80"><ResponsiveContainer width="100%" height="100%">
-          <BarChart data={creditBurnDown} margin={{ top: 10, right: 18, left: 10, bottom: 0 }}>
+          <BarChart data={creditBurnDown} margin={{ top: 30, right: 32, left: 18, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#cbd5e1" />
             <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
             <YAxis tick={{ fontSize: 12 }} tickFormatter={value => `$${value}`} />
@@ -2089,6 +2091,7 @@ function ExpenseTracker({
             <ReferenceLine y={0} stroke="#64748b" strokeWidth={1.5} />
             <Bar name="Credit remaining" dataKey="remaining" radius={3} maxBarSize={42}>
               {creditBurnDown.map(day => <Cell key={day.date} fill={day.remaining >= 0 ? "#16a34a" : "#ec4899"} />)}
+              <LabelList dataKey="balanceLabel" position="top" fontSize={11} fill="#64748b" />
             </Bar>
           </BarChart>
         </ResponsiveContainer></div> : <p className="py-10 text-center text-sm text-slate-500">Add transactions to see how debits use your credit balance.</p>}
