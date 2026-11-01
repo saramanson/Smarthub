@@ -125,6 +125,7 @@ type PantryItem = {
 };
 
 type Expense = {
+  type?: "Credit" | "Debit";
   id: string;
   date: string;
   description: string;
@@ -1842,7 +1843,7 @@ function ExpenseTracker({
       date.setHours(0, 0, 0, 0);
       date.setDate(date.getDate() - (6 - index));
       const key = date.toISOString().slice(0, 10);
-      return { label: formatter.format(date), amount: items.filter((item) => item.date === key).reduce((sum, item) => sum + item.amount, 0) };
+      return { label: formatter.format(date), amount: items.filter((item) => item.date === key).reduce((sum, item) => sum + (item.type === "Credit" ? 0 : item.amount), 0) };
     });
   }, [items]);
 
@@ -1852,15 +1853,15 @@ function ExpenseTracker({
     return Array.from({ length: 6 }, (_, index) => {
       const date = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      return { label: formatter.format(date), amount: items.filter((item) => item.date.startsWith(key)).reduce((sum, item) => sum + item.amount, 0) };
+      return { label: formatter.format(date), amount: items.filter((item) => item.date.startsWith(key)).reduce((sum, item) => sum + (item.type === "Credit" ? 0 : item.amount), 0) };
     });
   }, [items]);
 
   const categorySpend = useMemo(
-    () => expenseCategories.map((categoryName) => ({ name: categoryName, amount: items.filter((item) => item.category === categoryName).reduce((sum, item) => sum + item.amount, 0) })).filter((item) => item.amount > 0),
+    () => expenseCategories.map((categoryName) => ({ name: categoryName, amount: items.filter((item) => item.category === categoryName).reduce((sum, item) => sum + (item.type === "Credit" ? 0 : item.amount), 0) })).filter((item) => item.amount > 0),
     [items]
   );
-  const totalSpend = items.reduce((sum, item) => sum + item.amount, 0);
+  const totalSpend = items.reduce((sum, item) => sum + (item.type === "Credit" ? 0 : item.amount), 0);
   const weekSpend = weeklySpend.reduce((sum, item) => sum + item.amount, 0);
   const monthSpend = monthlySpend.at(-1)?.amount ?? 0;
 
@@ -1893,7 +1894,7 @@ function ExpenseTracker({
         return;
       }
     }
-    const nextExpense: Expense = { id: expenseId, date, description, category: expenseCategory, amount, ...(bill ? { bill } : {}) };
+    const nextExpense: Expense = { id: expenseId, date, description, category: expenseCategory, type: formData.get("expense-type") === "Credit" ? "Credit" : "Debit", amount, ...(bill ? { bill } : {}) };
     if (editingExpense) {
       setItems((current) => current.map((item) => (item.id === editingExpense.id ? nextExpense : item)));
       if (billFile && editingExpense.bill) void deleteExpenseBill(editingExpense.bill.id);
@@ -1956,7 +1957,7 @@ function ExpenseTracker({
   };
 
   const downloadExpenses = () => {
-    const rows = items.map((item) => ({ Date: item.date, Description: item.description, Category: item.category, Type: "Debit (Expense)", "Amount ($)": item.amount, "Bill attachment": item.bill?.name ?? "" }));
+    const rows = items.map((item) => ({ Date: item.date, Description: item.description, Category: item.category, Type: item.type === "Credit" ? "Credit" : "Debit", "Amount ($)": item.amount, "Bill attachment": item.bill?.name ?? "" }));
     const worksheet = XLSX.utils.json_to_sheet(rows);
     worksheet["!cols"] = [{ wch: 14 }, { wch: 34 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 34 }];
     const workbook = XLSX.utils.book_new();
@@ -2072,8 +2073,8 @@ function ExpenseTracker({
         <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">Showing {visibleItems.length} of {items.length} expenses{selectedIds.length ? ` · ${selectedIds.length} selected` : ""}</p>
         <div className="max-h-[560px] overflow-auto rounded-xl border border-slate-200 dark:border-white/10">
           <table className="w-full min-w-[1040px] border-collapse text-left text-sm">
-            <thead className="sticky top-0 z-10 bg-emerald-100 text-xs uppercase tracking-[0.08em] text-emerald-950 dark:bg-emerald-300 dark:text-slate-950"><tr><th className="w-14 px-3 py-3 text-center"><input type="checkbox" checked={visibleItems.length > 0 && visibleItems.every((item) => selectedIds.includes(item.id))} onChange={toggleSelectAll} aria-label="Select all visible expenses" className="h-4 w-4 rounded border-slate-300 accent-teal-600" /></th><th className="w-32 px-3 py-3">Date</th><th className="min-w-[300px] px-3 py-3">Description</th><th className="w-44 px-3 py-3">Category</th><th className="w-32 px-3 py-3 text-right">Amount ($)</th><th className="w-56 px-3 py-3">Bill</th></tr></thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-white/10">{visibleItems.map((item) => <tr key={item.id} className={cn("transition-colors hover:bg-teal-50/70 dark:hover:bg-teal-300/5", selectedIds.includes(item.id) && "bg-teal-50/80 dark:bg-teal-300/10")}><td className="px-3 py-3 text-center"><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelected(item.id)} aria-label={`Select ${item.description}`} className="h-4 w-4 rounded border-slate-300 accent-teal-600" /></td><td className="px-3 py-3 tabular-nums">{item.date}</td><td className="px-3 py-3 font-medium">{item.description}</td><td className="px-3 py-3">{item.category}</td><td className="px-3 py-3 text-right font-semibold tabular-nums">{currency.format(item.amount)}</td><td className="px-3 py-3">{item.bill ? <button type="button" onClick={() => void openBill(item.bill!)} className="inline-flex max-w-full items-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-left text-xs font-semibold text-teal-800 transition hover:bg-teal-100 dark:border-teal-300/30 dark:bg-teal-300/10 dark:text-teal-100"><FileText className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{item.bill.name}</span></button> : <span className="text-xs text-slate-400 dark:text-slate-500">No bill</span>}</td></tr>)}</tbody>
+            <thead className="sticky top-0 z-10 bg-emerald-100 text-xs uppercase tracking-[0.08em] text-emerald-950 dark:bg-emerald-300 dark:text-slate-950"><tr><th className="w-14 px-3 py-3 text-center"><input type="checkbox" checked={visibleItems.length > 0 && visibleItems.every((item) => selectedIds.includes(item.id))} onChange={toggleSelectAll} aria-label="Select all visible expenses" className="h-4 w-4 rounded border-slate-300 accent-teal-600" /></th><th className="w-32 px-3 py-3">Date</th><th className="min-w-[300px] px-3 py-3">Description</th><th className="w-44 px-3 py-3">Category</th><th className="w-32 px-3 py-3 text-right">Amount ($)</th><th className="w-32 px-3 py-3">Type</th><th className="w-56 px-3 py-3">Bill</th></tr></thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-white/10">{visibleItems.map((item) => <tr key={item.id} className={cn("transition-colors hover:bg-teal-50/70 dark:hover:bg-teal-300/5", selectedIds.includes(item.id) && "bg-teal-50/80 dark:bg-teal-300/10")}><td className="px-3 py-3 text-center"><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelected(item.id)} aria-label={`Select ${item.description}`} className="h-4 w-4 rounded border-slate-300 accent-teal-600" /></td><td className="px-3 py-3 tabular-nums">{item.date}</td><td className="px-3 py-3 font-medium">{item.description}</td><td className="px-3 py-3">{item.category}</td><td className="px-3 py-3 text-right font-semibold tabular-nums">{currency.format(item.amount)}</td><td className="px-3 py-3"><span className={item.type === "Credit" ? "font-semibold text-emerald-700 dark:text-emerald-300" : "text-slate-600 dark:text-slate-300"}>{item.type === "Credit" ? "Credit" : "Debit"}</span></td><td className="px-3 py-3">{item.bill ? <button type="button" onClick={() => void openBill(item.bill!)} className="inline-flex max-w-full items-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-left text-xs font-semibold text-teal-800 transition hover:bg-teal-100 dark:border-teal-300/30 dark:bg-teal-300/10 dark:text-teal-100"><FileText className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{item.bill.name}</span></button> : <span className="text-xs text-slate-400 dark:text-slate-500">No bill</span>}</td></tr>)}</tbody>
           </table>
         </div>
         {visibleItems.length === 0 && <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">No expenses found. Create an expense to begin tracking your spend.</p>}
@@ -2131,6 +2132,7 @@ function ExpenseEditorModal({
           <label className="block text-sm font-medium">Date<input name="expense-date" type="date" defaultValue={expense?.date ?? todayValue} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" /></label>
           <label className="block text-sm font-medium">Description<input name="expense-description" required defaultValue={expense?.description ?? ""} placeholder="Enter description" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" /></label>
           <div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">Category<select name="expense-category" defaultValue={expense?.category ?? "Grocery"} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5">{expenseCategories.map((categoryName) => <option key={categoryName} value={categoryName}>{categoryName}</option>)}</select></label><label className="block text-sm font-medium">Amount ($)<input name="expense-amount" required min="0.01" step="0.01" type="number" defaultValue={expense?.amount ?? ""} placeholder="0.00" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 dark:border-white/10 dark:bg-white/5" /></label></div>
+          <label className="block text-sm font-medium">Type<select name="expense-type" defaultValue={expense?.type === "Credit" ? "Credit" : "Debit"} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-400 dark:border-white/10 dark:bg-white/5"><option value="Debit">Debit</option><option value="Credit">Credit</option></select></label>
           <section className="rounded-2xl border border-dashed border-teal-200 bg-teal-50/55 p-4 dark:border-teal-300/30 dark:bg-teal-300/10">
             <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start"><div><p className="text-sm font-semibold">Bill attachment <span className="font-normal text-slate-500 dark:text-slate-400">(optional)</span></p><p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Attach a photo, WhatsApp image, or PDF. On a phone, use the camera to capture the bill.</p></div>{expense?.bill && !selectedBill && <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-teal-800 dark:bg-slate-950/50 dark:text-teal-100">Current: {expense.bill.name}</span>}</div>
             <input ref={uploadInputRef} type="file" accept="image/*,application/pdf,.pdf" onChange={selectBill} className="sr-only" />
