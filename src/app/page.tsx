@@ -1867,26 +1867,24 @@ function ExpenseTracker({
     () => expenseCategories.map((categoryName) => ({ name: categoryName, amount: items.filter((item) => item.category === categoryName && item.type !== "Credit").reduce((sum, item) => sum + item.amount, 0) })).filter((item) => item.amount > 0),
     [items]
   );
+  const [burnDownMonth, setBurnDownMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const monthCredit = items.filter(item => item.date.startsWith(burnDownMonth) && item.type === "Credit").reduce((sum, item) => sum + item.amount, 0);
   const creditBurnDown = useMemo(() => {
-    const transactionDates = [...new Set(items.map(item => item.date))].sort();
-    if (!transactionDates.length) return [];
-    const dates: string[] = [];
-    const cursor = new Date(`${transactionDates[0]}T00:00:00Z`);
-    const last = transactionDates.at(-1)!;
-    while (cursor.toISOString().slice(0, 10) <= last) {
-      dates.push(cursor.toISOString().slice(0, 10));
-      cursor.setUTCDate(cursor.getUTCDate() + 1);
-    }
-    let credit = 0;
+    const [year, month] = burnDownMonth.split("-").map(Number);
+    const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const entries = items.filter(item => item.date.startsWith(`${burnDownMonth}-`));
+    const credit = entries.filter(item => item.type === "Credit").reduce((sum, item) => sum + item.amount, 0);
     let debit = 0;
-    return dates.map(date => {
-      for (const item of items.filter(item => item.date === date)) {
-        if (item.type === "Credit") credit += item.amount;
-        else debit += item.amount;
-      }
+    return Array.from({ length: days }, (_, index) => {
+      const date = `${burnDownMonth}-${String(index + 1).padStart(2, "0")}`;
+      debit += entries.filter(item => item.date === date && item.type !== "Credit").reduce((sum, item) => sum + item.amount, 0);
       return { date, credit, debit, remaining: credit - debit };
     });
-  }, [items]);
+  }, [items, burnDownMonth]);
+  const monthSavings = creditBurnDown.at(-1)?.remaining ?? 0;
   const totalSpend = items.reduce((sum, item) => sum + (item.type === "Credit" ? item.amount : -item.amount), 0);
   const weekSpend = weeklySpend.reduce((sum, item) => sum + item.amount, 0);
   const monthSpend = monthlySpend.at(-1)?.amount ?? 0;
@@ -2076,6 +2074,12 @@ function ExpenseTracker({
       </div>
 
       <Panel title="Credit burn-down">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+          <label className="text-sm font-medium">Month<input type="month" value={burnDownMonth} onChange={event => { if (/^\d{4}-\d{2}$/.test(event.target.value)) setBurnDownMonth(event.target.value); }} className="mt-2 block rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-slate-900" /></label>
+          <div><p className="text-xs text-slate-500">Starting credit</p><p className="text-xl font-semibold text-green-600">{currency.format(monthCredit)}</p></div>
+          <div><p className="text-xs text-slate-500">{monthSavings < 0 ? "Overspending" : "Savings"}</p><p className={cn("text-xl font-semibold", monthSavings < 0 ? "text-pink-600" : "text-green-600")}>{currency.format(Math.abs(monthSavings))}</p></div>
+        </div>
+        <p className="mb-3 text-xs text-slate-500">Month-end balance based on recorded transactions.</p>
         {creditBurnDown.length ? <div className="h-80"><ResponsiveContainer width="100%" height="100%">
           <BarChart data={creditBurnDown} margin={{ top: 10, right: 18, left: 10, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#cbd5e1" />
