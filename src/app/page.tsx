@@ -5,7 +5,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { ComposedChart, Line, Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ReferenceLine, Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import * as XLSX from "xlsx";
 import {
   Award,
@@ -1868,7 +1868,15 @@ function ExpenseTracker({
     [items]
   );
   const creditBurnDown = useMemo(() => {
-    const dates = [...new Set(items.map(item => item.date))].sort();
+    const transactionDates = [...new Set(items.map(item => item.date))].sort();
+    if (!transactionDates.length) return [];
+    const dates: string[] = [];
+    const cursor = new Date(`${transactionDates[0]}T00:00:00Z`);
+    const last = transactionDates.at(-1)!;
+    while (cursor.toISOString().slice(0, 10) <= last) {
+      dates.push(cursor.toISOString().slice(0, 10));
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
     let credit = 0;
     let debit = 0;
     return dates.map(date => {
@@ -2069,16 +2077,16 @@ function ExpenseTracker({
 
       <Panel title="Credit burn-down">
         {creditBurnDown.length ? <div className="h-80"><ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={creditBurnDown} margin={{ top: 10, right: 18, left: 10, bottom: 0 }}>
+          <BarChart data={creditBurnDown} margin={{ top: 10, right: 18, left: 10, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#cbd5e1" />
             <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
             <YAxis tick={{ fontSize: 12 }} tickFormatter={value => `$${value}`} />
             <Tooltip formatter={value => currency.format(Number(value))} />
-            <Legend />
-            <Area name="Cumulative credit" type="stepAfter" dataKey="credit" stroke="#16a34a" fill="#16a34a" fillOpacity={0.12} />
-            <Line name="Cumulative debit" type="stepAfter" dataKey="debit" stroke="#ec4899" strokeWidth={2} dot={false} />
-            <Line name="Credit remaining" type="stepAfter" dataKey="remaining" stroke="#64748b" strokeWidth={3} dot={false} />
-          </ComposedChart>
+            <ReferenceLine y={0} stroke="#64748b" strokeWidth={1.5} />
+            <Bar name="Credit remaining" dataKey="remaining" radius={3} maxBarSize={42}>
+              {creditBurnDown.map(day => <Cell key={day.date} fill={day.remaining >= 0 ? "#16a34a" : "#ec4899"} />)}
+            </Bar>
+          </BarChart>
         </ResponsiveContainer></div> : <p className="py-10 text-center text-sm text-slate-500">Add transactions to see how debits use your credit balance.</p>}
       </Panel>
 
