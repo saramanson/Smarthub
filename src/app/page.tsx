@@ -1829,17 +1829,24 @@ function ExpenseTracker({
     if (storageReady) cloudStorage.setItem("smart-home-expenses", JSON.stringify(items));
   }, [items, storageReady]);
 
-  const visibleItems = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return items
-      .filter((item) => (!term || `${item.description} ${item.category}`.toLowerCase().includes(term)) && (category === "All" || item.category === category))
-      .sort((left, right) => right.date.localeCompare(left.date));
-  }, [category, items, search]);
-
   const [burnDownMonth, setBurnDownMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
+  const visibleItems = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return items
+      .filter((item) => item.date.startsWith(`${burnDownMonth}-`) && (!term || `${item.description} ${item.category}`.toLowerCase().includes(term)) && (category === "All" || item.category === category))
+      .sort((left, right) => right.date.localeCompare(left.date));
+  }, [category, items, search, burnDownMonth]);
+
+  useEffect(() => { setSelectedIds([]); }, [burnDownMonth, category, search]);
+  const monthItems = items.filter(item => item.date.startsWith(`${burnDownMonth}-`));
+  const shiftTransactionMonth = (offset: number) => {
+    const [year, month] = burnDownMonth.split("-").map(Number);
+    const date = new Date(Date.UTC(year, month - 1 + offset, 1));
+    setBurnDownMonth(`${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`);
+  };
   const weeklySpend = useMemo(() => {
     const formatter = new Intl.DateTimeFormat("en-US", { weekday: "short" });
     return Array.from({ length: 7 }, (_, index) => {
@@ -1982,12 +1989,12 @@ function ExpenseTracker({
   };
 
   const downloadExpenses = () => {
-    const rows = items.map((item) => ({ Date: item.date, Description: item.description, Category: item.category, Type: item.type === "Credit" ? "Credit" : "Debit", "Amount ($)": item.amount, "Bill attachment": item.bill?.name ?? "" }));
+    const rows = visibleItems.map((item) => ({ Date: item.date, Description: item.description, Category: item.category, Type: item.type === "Credit" ? "Credit" : "Debit", "Amount ($)": item.amount, "Bill attachment": item.bill?.name ?? "" }));
     const worksheet = XLSX.utils.json_to_sheet(rows);
     worksheet["!cols"] = [{ wch: 14 }, { wch: 34 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 34 }];
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Expenses");
-    XLSX.writeFile(workbook, "expenses.xlsx", { compression: true });
+    XLSX.writeFile(workbook, `expenses-${burnDownMonth}.xlsx`, { compression: true });
     setNotice("Expenses downloaded to Excel.");
   };
 
@@ -2098,6 +2105,11 @@ function ExpenseTracker({
       </Panel>
 
       <Panel title="Manage transactions">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <button type="button" aria-label="Previous transaction month" onClick={() => shiftTransactionMonth(-1)} className="rounded-xl border border-slate-200 p-2 dark:border-white/10"><ChevronLeft className="h-4 w-4" /></button>
+          <label className="text-sm font-medium">Month<input type="month" value={burnDownMonth} onChange={event => { if (/^\d{4}-\d{2}$/.test(event.target.value)) setBurnDownMonth(event.target.value); }} className="ml-3 rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-slate-900" /></label>
+          <button type="button" aria-label="Next transaction month" onClick={() => shiftTransactionMonth(1)} className="rounded-xl border border-slate-200 p-2 dark:border-white/10"><ChevronRight className="h-4 w-4" /></button>
+        </div>
         <div className="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5">
           <div className="flex flex-col justify-between gap-3 p-3 xl:flex-row xl:items-center">
             <div className="flex flex-wrap gap-2">
@@ -2118,7 +2130,7 @@ function ExpenseTracker({
           </AnimatePresence>
         </div>
 
-        <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">Showing {visibleItems.length} of {items.length} expenses{selectedIds.length ? ` · ${selectedIds.length} selected` : ""}</p>
+        <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">Showing {visibleItems.length} of {monthItems.length} transactions in {burnDownMonth}{selectedIds.length ? ` · ${selectedIds.length} selected` : ""}</p>
         <div className="max-h-[560px] overflow-auto rounded-xl border border-slate-200 dark:border-white/10">
           <table className="w-full min-w-[1040px] border-collapse text-left text-sm">
             <thead className="sticky top-0 z-10 bg-emerald-100 text-xs uppercase tracking-[0.08em] text-emerald-950 dark:bg-emerald-300 dark:text-slate-950"><tr><th className="w-14 px-3 py-3 text-center"><input type="checkbox" checked={visibleItems.length > 0 && visibleItems.every((item) => selectedIds.includes(item.id))} onChange={toggleSelectAll} aria-label="Select all visible expenses" className="h-4 w-4 rounded border-slate-300 accent-teal-600" /></th><th className="w-32 px-3 py-3">Date</th><th className="min-w-[300px] px-3 py-3">Description</th><th className="w-44 px-3 py-3">Category</th><th className="w-32 px-3 py-3 text-right">Amount ($)</th><th className="w-32 px-3 py-3">Type</th><th className="w-56 px-3 py-3">Bill</th></tr></thead>
