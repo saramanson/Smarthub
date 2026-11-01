@@ -1836,6 +1836,10 @@ function ExpenseTracker({
       .sort((left, right) => right.date.localeCompare(left.date));
   }, [category, items, search]);
 
+  const [burnDownMonth, setBurnDownMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
   const weeklySpend = useMemo(() => {
     const formatter = new Intl.DateTimeFormat("en-US", { weekday: "short" });
     return Array.from({ length: 7 }, (_, index) => {
@@ -1851,26 +1855,21 @@ function ExpenseTracker({
   }, [items]);
 
   const monthlySpend = useMemo(() => {
-    const formatter = new Intl.DateTimeFormat("en-US", { month: "short" });
-    const now = new Date();
-    return Array.from({ length: 6 }, (_, index) => {
-      const date = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      const entries = items.filter(item => item.date.startsWith(key));
+    const [year, month] = burnDownMonth.split("-").map(Number);
+    const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    return Array.from({ length: days }, (_, index) => {
+      const date = `${burnDownMonth}-${String(index + 1).padStart(2, "0")}`;
+      const entries = items.filter(item => item.date === date);
       const credit = entries.filter(item => item.type === "Credit").reduce((sum, item) => sum + item.amount, 0);
       const debit = -entries.filter(item => item.type !== "Credit").reduce((sum, item) => sum + item.amount, 0);
-      return { label: formatter.format(date), amount: credit + debit, credit, debit };
+      return { label: String(index + 1), date, amount: credit + debit, credit, debit };
     });
-  }, [items]);
+  }, [items, burnDownMonth]);
 
   const categorySpend = useMemo(
-    () => expenseCategories.map((categoryName) => ({ name: categoryName, amount: items.filter((item) => item.category === categoryName && item.type !== "Credit").reduce((sum, item) => sum + item.amount, 0) })).filter((item) => item.amount > 0),
-    [items]
+    () => expenseCategories.map((categoryName) => ({ name: categoryName, amount: items.filter((item) => item.category === categoryName && item.type !== "Credit" && item.date.startsWith(`${burnDownMonth}-`)).reduce((sum, item) => sum + item.amount, 0) })).filter((item) => item.amount > 0),
+    [items, burnDownMonth]
   );
-  const [burnDownMonth, setBurnDownMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  });
   const monthCredit = items.filter(item => item.date.startsWith(burnDownMonth) && item.type === "Credit").reduce((sum, item) => sum + item.amount, 0);
   const creditBurnDown = useMemo(() => {
     const [year, month] = burnDownMonth.split("-").map(Number);
@@ -1889,7 +1888,7 @@ function ExpenseTracker({
   const monthSavings = creditBurnDown.at(-1)?.remaining ?? 0;
   const totalSpend = items.reduce((sum, item) => sum + (item.type === "Credit" ? item.amount : -item.amount), 0);
   const weekSpend = weeklySpend.reduce((sum, item) => sum + item.amount, 0);
-  const monthSpend = monthlySpend.at(-1)?.amount ?? 0;
+  const monthSpend = monthlySpend.reduce((sum, day) => sum + day.amount, 0);
 
   const openCreate = () => {
     setEditingExpense(null);
@@ -2012,12 +2011,13 @@ function ExpenseTracker({
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">Household finances</p>
         <h2 className="mt-1 text-3xl font-semibold">Expense</h2>
+        <label className="mt-3 block text-sm font-medium">Chart month<input type="month" value={burnDownMonth} onChange={event => { if (/^\d{4}-\d{2}$/.test(event.target.value)) setBurnDownMonth(event.target.value); }} className="ml-3 rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-slate-900" /></label>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <PantryMetric label="Total spend" value={currency.format(totalSpend)} detail="All transactions" icon={WalletCards} tone="bg-rose-100 text-rose-700 dark:bg-rose-300/15 dark:text-rose-200" />
         <PantryMetric label="This week" value={currency.format(weekSpend)} detail="Last 7 days" icon={TrendingUp} tone="bg-amber-100 text-amber-700 dark:bg-amber-300/15 dark:text-amber-200" />
-        <PantryMetric label="This month" value={currency.format(monthSpend)} detail="Current calendar month" icon={CalendarDays} tone="bg-sky-100 text-sky-700 dark:bg-sky-300/15 dark:text-sky-200" />
+        <PantryMetric label="Selected month" value={currency.format(monthSpend)} detail={burnDownMonth} icon={CalendarDays} tone="bg-sky-100 text-sky-700 dark:bg-sky-300/15 dark:text-sky-200" />
         <PantryMetric label="Transactions" value={items.length.toLocaleString()} detail="Saved to cloud" icon={ListChecks} tone="bg-teal-100 text-teal-700 dark:bg-teal-300/15 dark:text-teal-200" />
       </div>
 
