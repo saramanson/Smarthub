@@ -5,7 +5,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ComposedChart, Line, Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import * as XLSX from "xlsx";
 import {
   Award,
@@ -1864,9 +1864,21 @@ function ExpenseTracker({
   }, [items]);
 
   const categorySpend = useMemo(
-    () => expenseCategories.map((categoryName) => ({ name: categoryName, amount: items.filter((item) => item.category === categoryName).reduce((sum, item) => sum + (item.type === "Credit" ? item.amount : -item.amount), 0) })).filter((item) => item.amount !== 0),
+    () => expenseCategories.map((categoryName) => ({ name: categoryName, amount: items.filter((item) => item.category === categoryName && item.type !== "Credit").reduce((sum, item) => sum + item.amount, 0) })).filter((item) => item.amount > 0),
     [items]
   );
+  const creditBurnDown = useMemo(() => {
+    const dates = [...new Set(items.map(item => item.date))].sort();
+    let credit = 0;
+    let debit = 0;
+    return dates.map(date => {
+      for (const item of items.filter(item => item.date === date)) {
+        if (item.type === "Credit") credit += item.amount;
+        else debit += item.amount;
+      }
+      return { date, credit, debit, remaining: credit - debit };
+    });
+  }, [items]);
   const totalSpend = items.reduce((sum, item) => sum + (item.type === "Credit" ? item.amount : -item.amount), 0);
   const weekSpend = weeklySpend.reduce((sum, item) => sum + item.amount, 0);
   const monthSpend = monthlySpend.at(-1)?.amount ?? 0;
@@ -2035,13 +2047,13 @@ function ExpenseTracker({
           {categorySpend.length ? (
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={categorySpend} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#cbd5e1" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} />
-                  <YAxis tickFormatter={(value) => `$${value}`} />
+                <PieChart>
+                  <Pie data={categorySpend} dataKey="amount" nameKey="name" innerRadius={62} outerRadius={100} paddingAngle={3}>
+                    {categorySpend.map((entry, index) => <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />)}
+                  </Pie>
                   <Tooltip formatter={(value) => currency.format(Number(value))} />
-                  <Bar name="Net" dataKey="amount" radius={4}>{categorySpend.map(entry => <Cell key={entry.name} fill={entry.amount >= 0 ? "#16a34a" : "#ec4899"} />)}</Bar>
-                </BarChart>
+                  <Legend />
+                </PieChart>
               </ResponsiveContainer>
             </div>
           ) : (
@@ -2054,6 +2066,21 @@ function ExpenseTracker({
         </Panel>
         </div>
       </div>
+
+      <Panel title="Credit burn-down">
+        {creditBurnDown.length ? <div className="h-80"><ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={creditBurnDown} margin={{ top: 10, right: 18, left: 10, bottom: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#cbd5e1" />
+            <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
+            <YAxis tick={{ fontSize: 12 }} tickFormatter={value => `$${value}`} />
+            <Tooltip formatter={value => currency.format(Number(value))} />
+            <Legend />
+            <Area name="Cumulative credit" type="stepAfter" dataKey="credit" stroke="#16a34a" fill="#16a34a" fillOpacity={0.12} />
+            <Line name="Cumulative debit" type="stepAfter" dataKey="debit" stroke="#ec4899" strokeWidth={2} dot={false} />
+            <Line name="Credit remaining" type="stepAfter" dataKey="remaining" stroke="#64748b" strokeWidth={3} dot={false} />
+          </ComposedChart>
+        </ResponsiveContainer></div> : <p className="py-10 text-center text-sm text-slate-500">Add transactions to see how debits use your credit balance.</p>}
+      </Panel>
 
       <Panel title="Manage transactions">
         <div className="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5">
